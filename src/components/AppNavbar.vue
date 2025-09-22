@@ -2,7 +2,12 @@
   <nav class="navbar navbar-expand-lg navbar-dark bg-danger shadow-sm">
     <div class="container">
       <!-- Marca -->
-      <RouterLink class="navbar-brand fw-bold" to="/">
+      <RouterLink
+        class="navbar-brand fw-bold"
+        :to="brandTo"
+        active-class=""
+        exact-active-class=""
+      >
         <i class="bi bi-receipt-cutoff me-2"></i> Xtreme Service
       </RouterLink>
 
@@ -19,47 +24,80 @@
         <span class="navbar-toggler-icon"></span>
       </button>
 
-      <!-- Links -->
+      <!-- Cuerpo -->
       <div class="collapse navbar-collapse" id="mainNav">
+        <!-- IZQUIERDA: menú por rol -->
         <ul class="navbar-nav me-auto mb-2 mb-lg-0" v-if="auth.autenticado">
-          <!-- Inicio -->
-          <li class="nav-item">
-            <RouterLink class="nav-link" :class="isActive('/')" to="/">
-              <i class="bi bi-house-door me-1"></i> Inicio
-            </RouterLink>
-          </li>
-          <!-- Historial -->
-          <li class="nav-item">
-            <RouterLink class="nav-link" :class="isActive('/mis-rendiciones')" to="/mis-rendiciones">
-              <i class="bi bi-journal-text me-1"></i> Mis Rendiciones
-            </RouterLink>
-          </li>
-          <!-- Reportes -->
-          <li class="nav-item">
-            <RouterLink class="nav-link" :class="isActive('/reportes')" to="/reportes">
-              <i class="bi bi-bar-chart-line me-1"></i> Reportes
-            </RouterLink>
-          </li>
-          <!-- Soporte -->
-          <li class="nav-item">
-            <RouterLink class="nav-link" :class="isActive('/soporte')" to="/soporte">
-              <i class="bi bi-life-preserver me-1"></i> Soporte
-            </RouterLink>
-          </li>
+          <!-- ADMIN: bloque admin + bloque rendidor -->
+          <template v-if="isAdmin">
+            <li class="nav-item" v-for="item in itemsAdminPanel" :key="`admin-${item.to}`">
+              <RouterLink
+                class="nav-link"
+                :class="isActive(item.to)"
+                :to="item.to"
+                active-class=""
+                exact-active-class=""
+              >
+                <i :class="item.icon" class="me-1"></i> {{ item.label }}
+              </RouterLink>
+            </li>
+
+            <li class="nav-item" v-for="item in itemsRendidor" :key="`rend-${item.to}`">
+              <RouterLink
+                class="nav-link"
+                :class="isActive(item.to)"
+                :to="item.to"
+                active-class=""
+                exact-active-class=""
+              >
+                <i :class="item.icon" class="me-1"></i> {{ item.label }}
+              </RouterLink>
+            </li>
+          </template>
+
+          <!-- APROBADOR: rendidor + aprobaciones -->
+          <template v-else-if="isAprobador">
+            <li class="nav-item" v-for="item in itemsAprobador" :key="`apr-${item.to}`">
+              <RouterLink
+                class="nav-link"
+                :class="isActive(item.to)"
+                :to="item.to"
+                active-class=""
+                exact-active-class=""
+              >
+                <i :class="item.icon" class="me-1"></i> {{ item.label }}
+              </RouterLink>
+            </li>
+          </template>
+
+          <!-- RENDIDOR: solo rendidor -->
+          <template v-else>
+            <li class="nav-item" v-for="item in itemsRendidor" :key="`rend-${item.to}`">
+              <RouterLink
+                class="nav-link"
+                :class="isActive(item.to)"
+                :to="item.to"
+                active-class=""
+                exact-active-class=""
+              >
+                <i :class="item.icon" class="me-1"></i> {{ item.label }}
+              </RouterLink>
+            </li>
+          </template>
         </ul>
 
-        <!-- Perfil -->
+        <!-- DERECHA: Rol + Perfil/Cerrar sesión -->
         <ul class="navbar-nav ms-auto" v-if="auth.autenticado">
+          <li class="nav-item d-none d-lg-flex align-items-center me-2">
+            <span class="badge text-bg-light text-dark">
+              <i class="bi bi-person-badge me-1"></i>{{ rolDisplay }}
+            </span>
+          </li>
+
           <li class="nav-item dropdown">
-            <a
-              class="nav-link dropdown-toggle d-flex align-items-center gap-2"
-              href="#"
-              data-bs-toggle="dropdown"
-            >
+            <a class="nav-link dropdown-toggle d-flex align-items-center gap-2" href="#" data-bs-toggle="dropdown">
               <span class="avatar-initials">{{ avatarIniciales }}</span>
-              <span class="d-none d-sm-inline">
-                {{ displayNombre }}
-              </span>
+              <span class="d-none d-sm-inline">{{ displayNombre }}</span>
             </a>
             <ul class="dropdown-menu dropdown-menu-end shadow-sm">
               <li>
@@ -101,6 +139,40 @@ const auth = useAuthStore()
 const router = useRouter()
 const route = useRoute()
 
+// Rol
+const rol = computed(() => auth.perfil?.rol || 'usuario')
+const isAdmin = computed(() => rol.value === 'admin')
+const isAprobador = computed(() => rol.value === 'aprobador')
+
+// Logo: admin -> /admin, aprobador -> /aprobador, resto -> /
+const brandTo = computed(() => (isAdmin.value ? '/admin' : isAprobador.value ? '/aprobador' : '/'))
+
+// Menús
+const itemsRendidor = [
+  { label: 'Inicio',          to: '/',                icon: 'bi bi-house-door' },
+  { label: 'Mis Rendiciones', to: '/mis-rendiciones', icon: 'bi bi-journal-text' },
+  { label: 'Reportes',        to: '/reportes',        icon: 'bi bi-bar-chart-line' },
+  { label: 'Soporte',         to: '/soporte',         icon: 'bi bi-life-preserver' },
+]
+const itemsAprobador = [
+  ...itemsRendidor,
+  { label: 'Aprobaciones', to: '/aprobador', icon: 'bi bi-check2-square' },
+]
+const itemsAdminPanel = [
+  { label: 'Admin',        to: '/admin',           icon: 'bi bi-speedometer2' },
+  { label: 'Usuarios',     to: '/admin/usuarios',  icon: 'bi bi-people' },
+  { label: 'Soporte',      to: '/admin/soporte',   icon: 'bi bi-life-preserver' },
+  { label: 'Aprobaciones', to: '/aprobador',       icon: 'bi bi-check2-square' },
+]
+
+// Activo: "/" solo exacto, el resto por prefijo también
+const isActive = (path) => {
+  if (path === '/') return route.path === '/' ? 'active fw-semibold' : ''
+  return (route.path === path || route.path.startsWith(path + '/')) ? 'active fw-semibold' : ''
+}
+
+// Badge rol y avatar
+const rolDisplay = computed(() => isAdmin.value ? 'Admin' : isAprobador.value ? 'Aprobador' : 'Rendidor')
 const displayNombre = computed(() => auth.perfil?.nombre || auth.user?.email || 'Usuario')
 const avatarIniciales = computed(() => {
   const base = auth.perfil?.nombre || auth.user?.email || 'U'
@@ -108,8 +180,6 @@ const avatarIniciales = computed(() => {
   const ini = (partes[0]?.[0] || base[0] || 'U') + (partes[1]?.[0] || '')
   return ini.toUpperCase()
 })
-
-const isActive = (path) => (route.path === path ? 'active fw-semibold' : '')
 
 const salir = async () => {
   await auth.logout()
@@ -130,7 +200,5 @@ const salir = async () => {
   color: #b02a37;
   border: 2px solid #fff;
 }
-.navbar .nav-link.active {
-  text-decoration: underline;
-}
+.navbar .nav-link.active { text-decoration: underline; }
 </style>

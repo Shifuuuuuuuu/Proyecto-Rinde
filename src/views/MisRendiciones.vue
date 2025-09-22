@@ -183,6 +183,7 @@ onMounted(() => {
       cargando.value = false
       pagina.value = 1
     })
+  // eslint-disable-next-line no-unused-vars
   } catch (e) {
     error.value = 'No fue posible cargar tus rendiciones.'
     cargando.value = false

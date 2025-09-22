@@ -1,3 +1,4 @@
+<!-- eslint-disable vue/multi-word-component-names -->
 <template>
   <!-- Encabezado -->
   <div class="p-4 rounded-3 border bg-white shadow-sm mb-3">

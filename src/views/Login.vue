@@ -1,3 +1,4 @@
+<!-- eslint-disable vue/multi-word-component-names -->
 <template>
   <div class="row justify-content-center">
     <div class="col-12 col-md-7 col-lg-5">

@@ -1,3 +1,4 @@
+<!-- eslint-disable vue/multi-word-component-names -->
 <template>
   <div class="d-flex justify-content-between align-items-center mb-3">
     <h1 class="h5 mb-0">Mi perfil</h1>
@@ -116,7 +117,7 @@ import { ref, computed, onMounted } from 'vue'
 import { RouterLink } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { db } from '@/firebase'
-import { doc, getDoc, setDoc, updateDoc, serverTimestamp } from 'firebase/firestore'
+import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore'
 
 const auth = useAuthStore()
 
@@ -163,6 +164,7 @@ onMounted(async () => {
     }
     form.value = { ...original.value }
     avatarPreview.value = original.value.fotoPerfil || null
+  // eslint-disable-next-line no-unused-vars
   } catch (e) {
     // silencioso, pero podrías mostrar un toast
   }

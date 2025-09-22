@@ -1,9 +1,9 @@
+<!-- eslint-disable vue/multi-word-component-names -->
 <template>
   <div class="d-flex justify-content-between align-items-center mb-3">
     <h1 class="h5 mb-0">Soporte</h1>
   </div>
 
-  <!-- Aviso estado del sistema (manual) -->
   <div v-if="banner.visible" class="alert" :class="banner.class" role="alert">
     <i :class="banner.icon" class="me-2"></i>{{ banner.text }}
   </div>
@@ -53,7 +53,7 @@
           </div>
 
           <div v-if="ok" class="alert alert-success py-2">
-            <i class="bi bi-check-circle me-1"></i> ¡Tu ticket fue enviado! Te avisaremos por correo si hay novedades.
+            <i class="bi bi-check-circle me-1"></i> ¡Tu ticket fue enviado! Te avisaremos si hay novedades.
           </div>
           <div v-if="error" class="alert alert-danger py-2">
             <i class="bi bi-exclamation-triangle me-1"></i> {{ error }}
@@ -102,7 +102,7 @@
                     Quitar
                   </button>
                 </div>
-                <div class="form-text">Se comprime a máx. 1280 px · &lt;= 250KB · JPG/PNG.</div>
+                <div class="form-text">Se comprime a máx. 1280 px · &le; 250KB · JPG/PNG.</div>
                 <div class="mt-2" v-if="fotoPreview">
                   <img :src="fotoPreview" alt="captura" class="img-fluid rounded border" style="max-height:200px;">
                 </div>
@@ -149,7 +149,12 @@
               <tbody>
                 <tr v-for="t in tickets" :key="t.id">
                   <td class="small text-nowrap">{{ formatFechaHora(t.creadoEn) }}</td>
-                  <td class="text-truncate" style="max-width: 260px;" :title="t.asunto">{{ t.asunto }}</td>
+                  <td class="text-truncate" style="max-width: 260px;" :title="t.asunto">
+                    <span class="fw-semibold">
+                      <i v-if="t.estado==='resuelto'" class="bi bi-check2-circle text-success me-1"></i>
+                      {{ t.asunto }}
+                    </span>
+                  </td>
                   <td><span :class="['badge', badgeEstado(t.estado)]">{{ t.estado }}</span></td>
                   <td>{{ t.prioridad }}</td>
                   <td>{{ t.categoria }}</td>
@@ -177,7 +182,15 @@
                     <div class="col-12 col-md-8">
                       <div class="mb-2"><span class="text-muted small">Asunto</span><div class="fw-semibold">{{ modalTicket.asunto }}</div></div>
                       <div class="mb-2"><span class="text-muted small">Descripción</span><div style="white-space:pre-wrap">{{ modalTicket.descripcion }}</div></div>
-                      <div class="row g-2">
+
+                      <!-- Respuesta del soporte -->
+                      <div v-if="modalTicket.respuesta" class="alert alert-success mt-2">
+                        <i class="bi bi-check2-circle me-1"></i>
+                        <span class="fw-semibold">Respuesta del equipo de soporte:</span>
+                        <div class="mt-1" style="white-space: pre-wrap;">{{ modalTicket.respuesta }}</div>
+                      </div>
+
+                      <div class="row g-2 mt-1">
                         <div class="col-6">
                           <div class="text-muted small">Estado</div>
                           <span :class="['badge', badgeEstado(modalTicket.estado)]">{{ modalTicket.estado }}</span>
@@ -219,7 +232,6 @@
 
 <script setup>
 import { ref, onMounted } from 'vue'
-import { RouterLink } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { db } from '@/firebase'
 import { addDoc, collection, serverTimestamp, query, where, orderBy, onSnapshot } from 'firebase/firestore'
@@ -275,11 +287,16 @@ onMounted(() => {
       where('userId', '==', auth.uid),
       orderBy('creadoEn', 'desc')
     )
+
     onSnapshot(qRef, (snap) => {
       tickets.value = snap.docs.map(d => ({ id: d.id, ...d.data() }))
       cargandoTickets.value = false
+    }, (err) => {
+      console.error(err)
+      cargandoTickets.value = false
     })
-  } catch (e) {
+  } catch (err) {
+    console.error(err)
     cargandoTickets.value = false
   }
 })
@@ -306,8 +323,9 @@ const enviar = async () => {
 
     resetForm()
     ok.value = true
-  } catch (e) {
-    error.value = e.message || 'No se pudo enviar el ticket.'
+  } catch (err) {
+    console.error(err)
+    error.value = err?.message || 'No se pudo enviar el ticket.'
   } finally {
     cargando.value = false
   }

@@ -1,3 +1,4 @@
+<!-- eslint-disable vue/multi-word-component-names -->
 <template>
   <div class="d-flex justify-content-between align-items-center mb-3">
     <h1 class="h5 mb-0">Reportes</h1>
@@ -201,6 +202,7 @@ onMounted(() => {
       cargando.value = false
       refreshCharts()
     })
+  // eslint-disable-next-line no-unused-vars
   } catch (e) {
     error.value = 'No fue posible cargar los datos.'
     cargando.value = false
@@ -373,33 +375,12 @@ const refreshCharts = async () => {
     console.warn('No se pudo cargar Chart.js', e)
   }
 }
-
-// ---- Exportar CSV
-const exportCSV = () => {
-  const rows = [
-    ['Fecha', 'Categoría', 'Motivo', 'Monto', 'Moneda', 'Estado', 'ID']
-  ]
-  for (const x of filtradas.value) {
-    const d = x.fecha?.toDate ? x.fecha.toDate() : new Date(x.fecha || x.creadoEn?.toDate?.() || Date.now())
-    rows.push([
-      d.toISOString().slice(0,10),
-      x.categoria || '',
-      (x.motivo || '').replace(/\n/g,' ').trim(),
-      String(Number(x.monto || 0)),
-      x.moneda || 'CLP',
-      x.estado || '',
-      x.id
-    ])
-  }
-  const csv = rows.map(r => r.map(cell => /[",\n]/.test(cell) ? `"${cell.replace(/"/g,'""')}"` : cell).join(',')).join('\n')
-  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
-  const url = URL.createObjectURL(blob)
-  const a = document.createElement('a')
-  a.href = url
-  a.download = 'reportes_rendiciones.csv'
-  document.body.appendChild(a)
-  a.click()
-  document.body.removeChild(a)
-  URL.revokeObjectURL(url)
-}
+onMounted(() => {
+  loadChartJS().then(() => {
+    chartReady.value = true
+    refreshCharts()
+  }).catch(() => {
+    chartReady.value = false
+  })
+})
 </script>

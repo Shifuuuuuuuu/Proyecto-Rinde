@@ -165,6 +165,7 @@ onMounted(async () => {
       return
     }
     item.value = { id: snap.id, ...snap.data() }
+  // eslint-disable-next-line no-unused-vars
   } catch (e) {
     error.value = 'Error al cargar.'
   }

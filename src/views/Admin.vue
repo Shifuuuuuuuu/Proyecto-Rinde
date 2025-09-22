@@ -1,4 +1,5 @@
-<!-- src/views/AdminRendiciones.vue -->
+<!-- eslint-disable vue/multi-word-component-names -->
+<!-- eslint-disable vue/no-deprecated-filter -->
 <template>
   <div class="container-fluid py-4">
     <!-- HEADER -->
@@ -120,8 +121,8 @@
                 <small class="text-muted">{{ r.numero ? ('N° ' + r.numero) : '' }}</small>
               </td>
               <td>
-                <div class="fw-semibold">{{ r.solicitanteNombre || r.userName || r.userEmail || r.userId }}</div>
-                <small class="text-muted">{{ r.userEmail || '-' }}</small>
+                <div class="fw-semibold">{{ r.nombre}}</div>
+                <small class="text-muted">{{ r.email || '-' }}</small>
               </td>
               <td>{{ r.empresa || '-' }}</td>
               <td>{{ r.categoria || '-' }}</td>
@@ -440,7 +441,7 @@ export default {
   vertical-align: middle;
 }
 .card {
-  border-radius: 1rem;
+  border-radius: 0.5rem;
 }
 .badge {
   font-weight: 600;

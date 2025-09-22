@@ -299,6 +299,8 @@ const guardar = async () => {
 
     const docData = {
       userId: auth.uid,
+      nombre: auth.perfil?.nombre || 'Anónimo',
+      email: auth.perfil?.email || '',
       empresa: auth.perfil?.empresa || null,
       monto: Number(monto.value || 0),
       moneda: moneda.value,

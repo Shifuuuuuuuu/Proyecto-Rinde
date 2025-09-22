@@ -5,7 +5,6 @@
     <div class="d-flex flex-wrap gap-2 align-items-center justify-content-between mb-3">
       <div class="d-flex align-items-center gap-2">
         <h2 class="h5 mb-0">Administración de usuarios</h2>
-        <span class="badge text-bg-secondary">CRUD + filtros + paginación</span>
       </div>
       <div class="d-flex flex-wrap gap-2">
         <button class="btn btn-outline-secondary btn-sm" @click="reload(true)">
@@ -96,7 +95,6 @@
             <tr v-for="u in renderRows" :key="u.id">
               <td>
                 <div class="fw-semibold">{{ u.nombre || '—' }}</div>
-                <small class="text-muted">{{ u.id }}</small>
               </td>
               <td>
                 <div class="fw-semibold">{{ u.email || '—' }}</div>
@@ -448,7 +446,7 @@ onMounted(async () => {
 </script>
 
 <style scoped>
-.card { border-radius: 1rem; }
+.card { border-radius: 0.5rem; }
 .badge { font-weight: 600; letter-spacing: .2px; }
 .table td, .table th { vertical-align: middle; }
 .btn-group .btn { white-space: nowrap; }
