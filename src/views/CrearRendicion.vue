@@ -158,14 +158,24 @@
                     style="width:70%; height:55%; pointer-events:none;"
                   ></div>
                 </div>
-                <div class="d-flex gap-2 mt-2">
+
+                <div class="d-flex gap-2 mt-2 flex-wrap align-items-center">
                   <button class="btn btn-outline-secondary" type="button" @click="stopScanner">
                     <i class="bi bi-stop-circle me-1"></i> Detener
                   </button>
-                  <button class="btn btn-outline-danger ms-auto" type="button" @click="switchCamera" v-if="canSwitchCamera">
+                  <button class="btn btn-outline-danger" type="button" @click="switchCamera" v-if="canSwitchCamera">
                     <i class="bi bi-camera-reverse me-1"></i> Cambiar cámara
                   </button>
+                  <button class="btn btn-outline-secondary" type="button" @click="toggleTorch">
+                    <i class="bi bi-lightning-charge me-1"></i> Linterna
+                  </button>
+                  <div class="ms-auto d-flex align-items-center gap-2">
+                    <small>Zoom</small>
+                    <input type="range" min="1" :max="maxZoom" step="0.1" v-model.number="zoomLevel" @input="setZoom(zoomLevel)" style="width:140px" />
+                  </div>
                 </div>
+
+                <div v-if="scannerInfo" class="small text-muted mt-1">{{ scannerInfo }}</div>
                 <div v-if="scanError" class="text-danger small mt-2">{{ scanError }}</div>
               </div>
             </div>
@@ -269,11 +279,16 @@
 </template>
 
 <script setup>
-import { ref, computed, onBeforeUnmount , nextTick  } from 'vue'
+import { ref, computed, onBeforeUnmount, nextTick } from 'vue'
 import { RouterLink, useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { db } from '@/firebase'
 import { addDoc, collection, serverTimestamp, Timestamp } from 'firebase/firestore'
+import { BrowserMultiFormatReader } from '@zxing/browser'
+import { BarcodeFormat, DecodeHintType } from '@zxing/library'
+
+
+
 
 const auth = useAuthStore()
 const router = useRouter()
@@ -299,13 +314,13 @@ const motivo = ref('')
 const notas = ref('')
 const fecha = ref('')
 
-// NUEVO: documento
-const tipoDoc = ref('')       // 'Boleta' | 'Factura'
-const numeroDoc = ref('')     // número/fólio
+// Documento
+const tipoDoc = ref('')
+const numeroDoc = ref('')
 
 // Foto (miniatura base64 para Firestore)
 const fileInput = ref(null)
-const fotoPreview = ref(null) // dataURL comprimido
+const fotoPreview = ref(null)
 
 // Estado UI
 const cargando = ref(false)
@@ -395,7 +410,7 @@ const compressImageToDataURL = (file, { maxW = 1280, maxH = 1280, quality = 0.8 
     reader.readAsDataURL(file)
   })
 
-// ------- ESCÁNER -------
+// ------- ESCÁNER (robusto Opera / Chrome / Edge / Firefox) -------
 // Refs & estado
 const videoEl = ref(null)
 const canvasEl = ref(null)
@@ -409,7 +424,15 @@ let mediaStream = null
 let rafId = null
 let barcodeDetector = null
 let zxingReader = null
-// quitamos pagoOk
+let currentTrack = null
+let currentDeviceId = null
+
+// Mejoras: torch y zoom
+const torchOn = ref(false)
+const zoomLevel = ref(1)
+const maxZoom = ref(1)
+
+// quitamos pagoOk, mantenemos flags de auto-llenado
 const autofillInfo = ref({ montoOk: false, fechaOk: false, catOk: false })
 
 function waitForVideoReady (v) {
@@ -426,6 +449,32 @@ function waitForVideoReady (v) {
   })
 }
 
+async function listVideoInputs() {
+  const devices = await navigator.mediaDevices.enumerateDevices()
+  return devices.filter(d => d.kind === 'videoinput')
+}
+
+function getZXingHints() {
+  const hints = new Map()
+  hints.set(DecodeHintType.POSSIBLE_FORMATS, [
+    BarcodeFormat.QR_CODE,
+    BarcodeFormat.EAN_13,
+    BarcodeFormat.EAN_8,
+    BarcodeFormat.CODE_128,
+    BarcodeFormat.CODE_39,
+    BarcodeFormat.ITF,
+    BarcodeFormat.UPC_A,
+    BarcodeFormat.UPC_E,
+    BarcodeFormat.CODABAR,
+    BarcodeFormat.DATA_MATRIX,
+    BarcodeFormat.AZTEC,
+    BarcodeFormat.PDF_417, // <- importante para boletas/facturas CL
+  ])
+  hints.set(DecodeHintType.TRY_HARDER, true)
+  return hints
+}
+
+
 async function startScanner () {
   scanError.value = ''
   lastScan.value = ''
@@ -433,56 +482,85 @@ async function startScanner () {
   scannerInfo.value = ''
 
   try {
+    // Cerrar el modal de foto si estaba abierto
     await closePhotoCapture()
 
+    // 1) Habilitar UI para que el <video> exista y esperar al render
+    scannerActive.value = true
+    await nextTick()
+
+    // 2) Preparar detector nativo si sirve
+    const wantFormats = [
+      'qr_code','ean_13','ean_8','code_128','code_39','upc_a','upc_e','itf','codabar','data_matrix','aztec','pdf417'
+    ]
     if ('BarcodeDetector' in window && !barcodeDetector) {
       try {
-        const supported = await window.BarcodeDetector.getSupportedFormats?.() || ['qr_code']
-        const wanted = ['qr_code','ean_13','ean_8','code_128','code_39','upc_a','upc_e','itf','codabar','data_matrix','aztec','pdf417']
-        const formats = wanted.filter(f => supported.includes(f))
-        barcodeDetector = new window.BarcodeDetector({ formats })
-        scannerInfo.value = `Usando detector nativo (${formats.join(', ') || 'qr_code'}).`
+        const supported = await window.BarcodeDetector.getSupportedFormats?.() || []
+        const formats = wantFormats.filter(f => supported.includes(f))
+        if (formats.length) {
+          barcodeDetector = new window.BarcodeDetector({ formats })
+          scannerInfo.value = `Detector nativo: ${formats.join(', ')}`
+        } else {
+          scannerInfo.value = 'Detector nativo sin formatos útiles; usaré ZXing.'
+        }
       } catch {
-        barcodeDetector = new window.BarcodeDetector({ formats: ['qr_code','code_128','ean_13'] })
-        scannerInfo.value = 'Usando detector nativo.'
+        scannerInfo.value = 'Detector nativo no disponible; usaré ZXing.'
       }
     }
 
-    mediaStream = await navigator.mediaDevices.getUserMedia({
-      video: { facingMode: { ideal: currentFacing }, width: { ideal: 1280 }, height: { ideal: 720 } },
+    // 3) Abrir cámara (trasera por defecto) con enfoque/exposición continuos
+    const constraints = {
+      video: {
+        facingMode: currentFacing, // 'environment' | 'user'
+        width: { ideal: 1280 },
+        height: { ideal: 720 },
+        advanced: [{ focusMode: 'continuous' }, { exposureMode: 'continuous' }],
+      },
       audio: false
-    })
-
-    if (videoEl.value) {
-      const v = videoEl.value
-      v.srcObject = mediaStream
-      v.muted = true
-      v.setAttribute('muted', '')
-      v.playsInline = true
-      v.setAttribute('playsinline', '')
-      v.setAttribute('autoplay', '')
-      await v.play().catch(() => {})
-      await waitForVideoReady(v)
     }
+    mediaStream = await navigator.mediaDevices.getUserMedia(constraints)
 
-    canSwitchCamera.value = (await navigator.mediaDevices.enumerateDevices()).some(d => d.kind === 'videoinput')
-    scannerActive.value = true
+    // 4) Conectar el stream al <video> (ya existe porque hicimos nextTick)
+    const v = videoEl.value
+    if (!v) throw new Error('No se encontró el elemento <video>.')
+    v.srcObject = mediaStream
+    v.setAttribute('playsinline', '')
+    v.setAttribute('autoplay', '')
+    await v.play().catch(()=>{})
+    await waitForVideoReady(v)
 
+    // 5) Detectar si hay más de una cámara
+    const inputs = await navigator.mediaDevices.enumerateDevices()
+    canSwitchCamera.value = inputs.filter(d => d.kind === 'videoinput').length > 1
+
+    // 6) Guardar track para torch/zoom y aplicar zoom inicial si está disponible
+    currentTrack = mediaStream.getVideoTracks()[0]
+    try {
+      const caps = currentTrack.getCapabilities?.() || {}
+      if (caps.zoom) {
+        maxZoom.value = caps.zoom.max || 1
+        await currentTrack.applyConstraints({ advanced: [{ zoom: Math.min(2, maxZoom.value) }] })
+        zoomLevel.value = Math.min(2, maxZoom.value)
+      }
+    } catch {error.value = 'No se pudo aplicar zoom inicial.'}
+      // opcional: no interrumpir si el dispositivo no soporta zoom
+    await new Promise(r => setTimeout(r, 500)) // esperar un poco al track
+
+    // 7) Elegir ruta de decodificación
     if (barcodeDetector) {
+      // Nativo
       loopDetectNative()
     } else {
-      try {
-        const ZXing = await import(/* @vite-ignore */ '@zxing/library')
-        zxingReader = new ZXing.BrowserMultiFormatReader()
-        scannerInfo.value = 'Usando ZXing (fallback).'
-        zxingReader.decodeFromVideoDevice(null, videoEl.value, (result) => {
-          if (result) handleScan(result.getText())
-        })
-      } catch (e) {
-        console.error(e)
-        scanError.value = e?.message || 'No se pudo activar la cámara.'
-        scanError.value = 'Tu navegador no soporta el detector nativo y ZXing no está instalado. Ejecuta: npm i @zxing/library'
-      }
+      // ZXing WASM (con hints para PDF417)
+      zxingReader = new BrowserMultiFormatReader(getZXingHints(), 700) // 700ms entre intentos
+      const cams = inputs.filter(d => d.kind === 'videoinput')
+      const back = cams.find(d => /back|trasera|rear/i.test(d.label)) || cams[0]
+      currentDeviceId = back?.deviceId || undefined
+      scannerInfo.value = 'Usando ZXing (WASM).'
+      zxingReader.decodeFromVideoDevice(currentDeviceId ?? null, videoEl.value, (result/*, err, controls*/) => {
+        if (result?.getText) handleScan(result.getText())
+        // err se ignora para continuar
+      })
     }
   } catch (e) {
     console.error(e)
@@ -491,9 +569,10 @@ async function startScanner () {
   }
 }
 
+
 function loopDetectNative () {
   const tick = async () => {
-    if (!scannerActive.value || !videoEl.value) return
+    if (!scannerActive.value || !videoEl.value || !barcodeDetector) return
     try {
       const v = videoEl.value
       const c = canvasEl.value
@@ -504,22 +583,65 @@ function loopDetectNative () {
         ctx.drawImage(v, 0, 0, c.width, c.height)
         const detections = await barcodeDetector.detect(c)
         if (detections && detections.length) {
-          handleScan(detections[0].rawValue || detections[0].rawValueText || '')
-          return
+          const value = detections[0].rawValue || detections[0].rawValueText || ''
+          if (value) { handleScan(value); return }
         }
       }
     } catch (e) {
-      console.error(e)
-      scanError.value = 'Error al detectar código.'
+      console.warn('Detector nativo error:', e)
     }
     rafId = requestAnimationFrame(tick)
   }
   rafId = requestAnimationFrame(tick)
 }
 
-// Heurística categoría (puedes ajustarla a tu lista si quieres)
+async function switchCamera () {
+  try {
+    if (zxingReader) {
+      const inputs = await listVideoInputs()
+      if (!inputs.length) return
+      const idx = inputs.findIndex(d => d.deviceId === currentDeviceId)
+      const next = inputs[(idx + 1) % inputs.length]
+      currentDeviceId = next.deviceId
+      await zxingReader.decodeFromVideoDevice(currentDeviceId, videoEl.value, (result) => {
+        if (result?.getText) handleScan(result.getText())
+      })
+      return
+    }
+    currentFacing = (currentFacing === 'environment') ? 'user' : 'environment'
+    await stopScanner()
+    await startScanner()
+  } catch (e) {
+    console.warn('Detector nativo error:', e)
+    scanError.value = 'No se pudo cambiar de cámara.'
+  }
+}
+
+async function toggleTorch () {
+  try {
+    if (!currentTrack) return
+    const caps = currentTrack.getCapabilities?.() || {}
+    if (!caps.torch) { scanError.value = 'Este dispositivo no soporta linterna.'; return }
+    torchOn.value = !torchOn.value
+    await currentTrack.applyConstraints({ advanced: [{ torch: torchOn.value }] })
+  } catch {
+    scanError.value = 'No se pudo cambiar la linterna.'
+  }
+}
+
+async function setZoom (factor) {
+  try {
+    if (!currentTrack) return
+    const caps = currentTrack.getCapabilities?.() || {}
+    if (!caps.zoom) return
+    zoomLevel.value = Math.min(Math.max(factor, caps.zoom.min || 1), caps.zoom.max || 1)
+    await currentTrack.applyConstraints({ advanced: [{ zoom: zoomLevel.value }] })
+  } catch {error.value = 'No se pudo ajustar el zoom.'}
+}
+
+// Heurística categoría
 function suggestCategoryFromText (t) {
-  const s = t.toLowerCase()
+  const s = String(t || '').toLowerCase()
   if (/(estacionamiento|parking)/i.test(s)) return 'Gastos de estacionamiento'
   if (/(notar|legal|abogada|abogado)/i.test(s)) return 'Gastos notariales y legales'
   if (/(bencina|combustible|gasolina)/i.test(s)) return 'Gastos de bencina con boleta'
@@ -531,12 +653,34 @@ function suggestCategoryFromText (t) {
   return 'Gastos varios con boleta'
 }
 
-function handleScan (text) {
-  if (!text) return
-  lastScan.value = String(text).trim()
+function handleScan (raw) {
+  if (!raw) return
+  lastScan.value = String(raw).trim()
   autofillInfo.value = { montoOk: false, fechaOk: false, catOk: false }
 
-  // Monto
+  // === EXTRA: parseo típico QR SII Chile (URL con t, f, fe) ===
+  try {
+    const urlMatch = lastScan.value.match(/https?:\/\/[^\s]+/i)?.[0]
+    if (urlMatch) {
+      const u = new URL(urlMatch)
+      const t = u.searchParams.get('t')   // monto
+      const f = u.searchParams.get('f')   // folio
+      const fe = u.searchParams.get('fe') // YYYY-MM-DD
+      if (t) {
+        const n = Number(t.replace(/\./g,'').replace(/,/g,'.'))
+        if (!Number.isNaN(n) && n > 0) {
+          monto.value = n
+          moneda.value = 'CLP'
+          syncStep()
+          autofillInfo.value.montoOk = true
+        }
+      }
+      if (f && !numeroDoc.value) { numeroDoc.value = f }
+      if (fe) { fecha.value = fe; autofillInfo.value.fechaOk = true }
+    }
+  } catch {error.value = 'No se pudo parsear URL del código.'}
+
+  // Monto (DTE texto)
   let montoTxt = null
   const m1 = /<MntTotal>\s*([\d.,]+)\s*<\/MntTotal>/i.exec(lastScan.value)
   if (m1?.[1]) montoTxt = m1[1]
@@ -584,7 +728,7 @@ function handleScan (text) {
   }
   if (fStr) { fecha.value = fStr; autofillInfo.value.fechaOk = true }
 
-  // Categoría
+  // Categoría sugerida
   const catSugerida = suggestCategoryFromText(lastScan.value)
   if (!categoria.value && catSugerida) {
     categoria.value = catSugerida
@@ -598,27 +742,24 @@ function handleScan (text) {
   stopScanner()
 }
 
-async function switchCamera () {
-  currentFacing = (currentFacing === 'environment') ? 'user' : 'environment'
-  await stopScanner()
-  await startScanner()
-}
-
 async function stopScanner () {
   try {
     if (rafId) cancelAnimationFrame(rafId)
     rafId = null
     if (zxingReader) {
-      try { zxingReader.reset() } catch {error.value = 'no se puede ver la cámara'}
+      try { await zxingReader.reset() } catch {error.value = 'No se pudo detener ZXing.'}
       zxingReader = null
     }
     if (mediaStream) {
       mediaStream.getTracks().forEach(t => t.stop())
       mediaStream = null
     }
-  } catch {error.value = 'no se puede ver la cámara'}
-  scannerActive.value = false
+    currentTrack = null
+  } finally {
+    scannerActive.value = false
+  }
 }
+
 
 onBeforeUnmount(() => { stopScanner() })
 
@@ -672,7 +813,7 @@ async function closePhotoCapture () {
       photoStream.getTracks().forEach(t => t.stop())
       photoStream = null
     }
-  } catch {error.value = 'no se pudo ver la cámara'}
+  } catch {error.value = 'No se pudo cerrar la cámara.'}
   photoReady.value = false
   photoActive.value = false
 }
@@ -720,7 +861,6 @@ const guardar = async () => {
     if (!auth.uid) throw new Error('No hay sesión activa.')
     if (!tipoDoc.value || !numeroDoc.value) throw new Error('Falta el tipo y/o número de documento.')
 
-    // Campos base
     const docData = {
       userId: auth.uid,
       nombre: auth.perfil?.nombre || 'Anónimo',
@@ -733,12 +873,9 @@ const guardar = async () => {
       motivo: (motivo.value || '').trim(),
       notas: (notas.value || '').trim() || null,
 
-      // Documento
-      tipoDocumento: tipoDoc.value,               // 'Boleta' | 'Factura'
-      numeroDocumento: numeroDoc.value,           // string
-      folio: numeroDoc.value,                     // compatibilidad con exportadores
-
-      // Compat: campos separados que quizás usas en otros lados
+      tipoDocumento: tipoDoc.value,
+      numeroDocumento: numeroDoc.value,
+      folio: numeroDoc.value,
       ...(tipoDoc.value === 'Boleta'  ? { numeroBoleta:  numeroDoc.value } : {}),
       ...(tipoDoc.value === 'Factura' ? { numeroFactura: numeroDoc.value } : {}),
 

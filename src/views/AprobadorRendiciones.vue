@@ -1,5 +1,8 @@
 <template>
   <div class="container py-3">
+    <button class="btn btn-outline-secondary btn-sm" @click="volver">
+      <i class="bi bi-arrow-left"></i> Volver
+    </button>
     <!-- Header -->
     <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
       <div class="d-flex align-items-center gap-2">
@@ -123,7 +126,7 @@
     <!-- Dos columnas -->
     <div class="row g-3">
       <!-- Últimas pendientes -->
-      <div class="col-12 col-lg-5">
+      <div class="col-12 col-lg-12">
         <div class="card shadow-sm h-100">
           <div class="card-body">
             <div class="d-flex justify-content-between align-items-center mb-2">
@@ -456,6 +459,8 @@ import {
   doc, updateDoc, serverTimestamp, writeBatch
 } from 'firebase/firestore'
 import { useRouter } from 'vue-router'
+//volver a la página anterior
+const volver = () => router.back()
 
 const router = useRouter()
 function goExport () {

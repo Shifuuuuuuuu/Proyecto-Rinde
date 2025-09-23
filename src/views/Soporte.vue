@@ -9,7 +9,6 @@
   </div>
 
   <div class="row g-3">
-    <!-- Columna izquierda: FAQs -->
     <div class="col-12 col-lg-5">
       <div class="card shadow-sm h-100">
         <div class="card-body">

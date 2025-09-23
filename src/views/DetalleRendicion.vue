@@ -1,18 +1,19 @@
 <template>
   <!-- Header (no se imprime) -->
-  <div class="d-flex justify-content-between align-items-center mb-3 no-print">
-    <div class="d-flex align-items-center gap-2">
+  <div class="d-flex align-items-center justify-content-between mb-3 no-print flex-wrap gap-2">
+    <div class="d-flex align-items-center gap-2 flex-wrap">
       <button class="btn btn-outline-secondary btn-sm" @click="volver">
         <i class="bi bi-arrow-left"></i> Volver
       </button>
-      <h2 class="h5 mb-0">Detalle de rendición</h2>
+      <h2 class="h5 mb-0 text-truncate" style="max-width: 60vw;">Detalle de rendición</h2>
       <span v-if="item" :class="['badge', badgeClass(item.estado)]">{{ item.estado }}</span>
     </div>
-    <div class="btn-group">
-      <button class="btn btn-outline-secondary btn-sm" @click="imprimir" :disabled="!item">
+
+    <div class="btn-group btn-group-sm w-auto w-sm-auto d-flex flex-column flex-sm-row gap-2 gap-sm-0">
+      <button class="btn btn-outline-secondary" @click="imprimir" :disabled="!item">
         <i class="bi bi-printer"></i> Imprimir
       </button>
-      <RouterLink class="btn btn-outline-secondary btn-sm" to="/mis-rendiciones">
+      <RouterLink class="btn btn-outline-secondary" to="/mis-rendiciones">
         <i class="bi bi-journal-text"></i> Mis rendiciones
       </RouterLink>
     </div>
@@ -52,7 +53,7 @@
 
           <!-- Datos principales -->
           <div class="row g-3">
-            <div class="col-md-6">
+            <div class="col-12 col-sm-6">
               <div class="border rounded p-3 h-100">
                 <div class="text-muted small">Monto</div>
                 <div class="fs-4 fw-semibold">{{ formatMoney(item.monto, item.moneda || 'CLP') }}</div>
@@ -60,7 +61,7 @@
               </div>
             </div>
 
-            <div class="col-md-6">
+            <div class="col-12 col-sm-6">
               <div class="border rounded p-3 h-100">
                 <div class="text-muted small">Categoría</div>
                 <div class="fw-semibold">{{ item.categoria || '—' }}</div>
@@ -69,14 +70,14 @@
               </div>
             </div>
 
-            <div class="col-md-6">
+            <div class="col-12 col-sm-6">
               <div class="border rounded p-3 h-100">
                 <div class="text-muted small">Folio / N° documento</div>
                 <div class="fw-semibold">{{ item.folio || '—' }}</div>
               </div>
             </div>
 
-            <div class="col-md-6">
+            <div class="col-12 col-sm-6">
               <div class="border rounded p-3 h-100">
                 <div class="text-muted small">Usuario</div>
                 <div class="fw-semibold">{{ item.nombre || '—' }}</div>
@@ -107,11 +108,11 @@
               </div>
 
               <div v-if="decisionInfo.tieneDecision" class="row g-2">
-                <div class="col-md-4">
+                <div class="col-12 col-sm-4">
                   <div class="text-muted small">{{ decisionInfo.labelPor }}</div>
                   <div class="fw-semibold">{{ decisionInfo.por || '—' }}</div>
                 </div>
-                <div class="col-md-4">
+                <div class="col-12 col-sm-4">
                   <div class="text-muted small">Fecha</div>
                   <div class="fw-semibold">{{ formatFechaHora(decisionInfo.en) }}</div>
                 </div>
@@ -162,7 +163,7 @@
             No se adjuntó imagen. Puedes añadirla al crear nuevas rendiciones.
           </div>
 
-          <div v-if="item.fotoPreview" class="d-flex gap-2 mt-2 no-print">
+          <div v-if="item.fotoPreview" class="d-flex gap-2 mt-2 no-print flex-column flex-sm-row">
             <a :href="item.fotoPreview" download="comprobante.jpg" class="btn btn-outline-secondary btn-sm w-100">
               <i class="bi bi-download"></i> Descargar
             </a>
@@ -176,7 +177,14 @@
   </div>
 
   <!-- Modal imagen (no imprime) -->
-  <div class="modal fade no-print" tabindex="-1" :class="{ show: abrirModalImagen }" style="display: block;" v-if="abrirModalImagen" @click.self="abrirModalImagen=false">
+  <div
+    class="modal fade no-print"
+    tabindex="-1"
+    :class="{ show: abrirModalImagen }"
+    style="display: block;"
+    v-if="abrirModalImagen"
+    @click.self="abrirModalImagen=false"
+  >
     <div class="modal-dialog modal-dialog-centered modal-lg">
       <div class="modal-content">
         <div class="modal-body p-0">
@@ -278,7 +286,7 @@ const volver = () => router.back()
 let originalTitle = document.title
 const beforePrint = () => {
   originalTitle = document.title
-  document.title = ' ' // para que el encabezado del navegador salga vacío
+  document.title = ' '
 }
 const afterPrint = () => {
   document.title = originalTitle
@@ -293,10 +301,8 @@ onBeforeUnmount(() => {
 })
 
 const imprimir = () => {
-  // por si el usuario usa nuestro botón
   beforePrint()
   window.print()
-  // fallback si 'afterprint' no se dispara
   setTimeout(afterPrint, 1500)
 }
 
@@ -327,74 +333,99 @@ const badgeClass = (estado) =>
 
 <style scoped>
 /* Logo en la vista */
-.xtreme-logo {
-  height: 50px;
-  width: auto;
-}
+.xtreme-logo { height: 50px; width: auto; }
 
 /* Modal en SPA */
 .modal.show { display: block; background: rgba(0,0,0,.5); }
 
+/* ======= RESPONSIVE (≤576px) ======= */
+@media (max-width: 576px) {
+  /* Títulos y badges un poco más chicos */
+  .h5 { font-size: 1rem; }
+  .badge { font-size: .75rem; }
+
+  /* Logo más pequeño y que no rompa el layout */
+  .xtreme-logo { height: 36px; max-width: 50vw; object-fit: contain; }
+
+  /* Cards: menos padding para ganar espacio */
+  .card .card-body { padding: .75rem; }
+
+  /* Bloques internos: algo menos de padding */
+  .row.g-3 > [class*="col-"] .border.p-3 { padding: .75rem !important; }
+
+  /* Imagen del comprobante: alto relativo a la ventana */
+  .image-card img { max-height: 52vh !important; object-fit: contain; }
+
+  /* Grupo de botones del header apilados (por si utilidades no aplican) */
+  .btn-group { width: 100%; }
+  .btn-group .btn,
+  .btn-group a.btn { width: 100%; }
+
+  /* Fechas: apilar y alinear a la izquierda */
+  .d-flex.justify-content-between.align-items-start.mb-2 {
+    flex-direction: column;
+    gap: .25rem;
+  }
+  .d-flex.justify-content-between.align-items-start.mb-2 .text-end {
+    text-align: left !important;
+  }
+
+  /* Evitar cortes feos en decisiones y tarjetas */
+  .decision-box { break-inside: avoid; }
+}
+
+/* ======= Modal: fullscreen en móvil ======= */
+@media (max-width: 576px) {
+  .modal-dialog.modal-lg {
+    max-width: 100%;
+    width: 100%;
+    margin: 0;
+    height: 100%;
+  }
+  .modal-content {
+    height: 100%;
+    border-radius: 0;
+  }
+  .modal-body { padding: 0; }
+  .modal-body img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    max-height: none;
+  }
+}
+
 /* ======= IMPRESIÓN ======= */
 @media print {
   :host { display: block; }
-
-  /* Oculta todo lo interactivo de esta vista */
-  .no-print,
-  .btn,
-  .btn-group,
-  .modal,
-  .modal * {
-    display: none !important;
-  }
+  .no-print, .btn, .btn-group, .modal, .modal * { display: none !important; }
 
   /* Oculta navbar / header / footer del layout global al imprimir */
-  :global(header),
-  :global(nav),
-  :global(.navbar),
-  :global(.app-header),
-  :global(.navbar-brand),
-  :global(footer),
-  :global(.app-footer) {
-    display: none !important;
-  }
+  :global(header), :global(nav), :global(.navbar),
+  :global(.app-header), :global(.navbar-brand),
+  :global(footer), :global(.app-footer) { display: none !important; }
 
-  /* Config. página */
-  @page {
-    size: A4;
-    margin: 12mm;
-  }
+  @page { size: A4; margin: 12mm; }
 
   /* Una sola columna en papel */
   .row { display: block !important; }
   .col-12, .col-lg-8, .col-lg-4 {
-    width: 100% !important;
-    max-width: 100% !important;
-    display: block !important;
+    width: 100% !important; max-width: 100% !important; display: block !important;
   }
 
-  /* Limpieza de tarjetas para papel */
   .card, .border, .rounded, .shadow-sm {
-    box-shadow: none !important;
-    border: 1px solid #bbb !important;
+    box-shadow: none !important; border: 1px solid #bbb !important;
   }
 
-  /* Logo más pequeño en impresión */
   .xtreme-logo { height: 26px; }
 
-  /* Caja de decisión no romper en medio */
   .decision-box { break-inside: avoid; }
 
-  /* Imagen del comprobante en otra hoja */
   .image-card {
-    break-before: page;
-    page-break-before: always; /* fallback navegadores antiguos */
+    break-before: page; page-break-before: always;
   }
-
-  /* Imagen adapta a hoja */
   .image-card img {
-    max-height: 300vh !important;
-    object-fit: contain !important;
+    max-height: 300vh !important; object-fit: contain !important;
   }
 }
 </style>
