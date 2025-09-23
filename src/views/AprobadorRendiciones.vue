@@ -15,6 +15,9 @@
         <select v-model.number="filtroAnio" class="form-select form-select-sm">
           <option v-for="y in anios" :key="y" :value="y">{{ y }}</option>
         </select>
+        <button class="btn btn-sm btn-outline-secondary" @click="goExport" title="Exportar / Generar informe">
+          <i class="bi bi-file-earmark-arrow-down"></i>
+        </button>
         <button class="btn btn-sm btn-outline-secondary" @click="recargarMes" title="Recargar">
           <i class="bi bi-arrow-clockwise"></i>
         </button>
@@ -24,6 +27,11 @@
       <div class="d-flex d-lg-none w-100">
         <button class="btn btn-outline-secondary w-100" @click="showFiltros = !showFiltros">
           <i class="bi bi-funnel me-1"></i> Filtros del período
+        </button>
+      </div>
+      <div class="d-lg-none w-100 mt-2">
+        <button class="btn btn-danger w-100" @click="goExport">
+          <i class="bi bi-file-earmark-arrow-down"></i> Exportar / Generar informe
         </button>
       </div>
     </div>
@@ -130,13 +138,12 @@
             <div v-else-if="!ultimasPendientes.length" class="text-muted small">No hay pendientes por ahora.</div>
 
             <div v-else class="list-group list-group-flush">
-              <button
+              <div
                 v-for="r in ultimasPendientes"
                 :key="r.id"
-                class="list-group-item list-group-item-action d-flex justify-content-between align-items-start"
-                @click="abrir(r)"
+                class="list-group-item d-flex justify-content-between align-items-start"
               >
-                <div class="me-2 w-100">
+                <div class="me-2 w-100" @click="abrir(r)" style="cursor:pointer">
                   <div class="d-flex justify-content-between">
                     <div class="text-truncate" :title="r.descripcion">
                       <span class="fw-semibold">{{ r.categoria || 'Rendición' }}</span>
@@ -149,7 +156,19 @@
                     {{ r.categoria || '—' }} · {{ formatFecha(r.creadoEn) }}
                   </div>
                 </div>
-              </button>
+
+                <!-- checkbox selección móvil/desktop -->
+                <div class="form-check ms-2 mt-1">
+                  <input
+                    class="form-check-input"
+                    type="checkbox"
+                    :value="r.id"
+                    v-model="selectedIds"
+                    @click.stop
+                    :id="`sel-pend-${r.id}`"
+                  />
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -170,31 +189,78 @@
             </div>
           </div>
 
+          <!-- BARRA DE ACCIONES MASIVAS -->
+          <div v-if="selectedIds.length" class="alert alert-warning py-2 px-3 mb-3">
+            <div class="d-flex flex-wrap align-items-center justify-content-between gap-2">
+              <strong>Acciones masivas</strong>
+              <div class="small text-muted">{{ selectedIds.length }} seleccionada(s)</div>
+              <div class="d-flex gap-2 ms-auto">
+                <button class="btn btn-outline-secondary btn-sm" @click="clearSelection">Quitar selección</button>
+                <button class="btn btn-outline-primary btn-sm" @click="selectAllVisible">Seleccionar visibles</button>
+              </div>
+            </div>
+            <div class="d-flex flex-column flex-lg-row gap-2 mt-2">
+              <textarea
+                v-model.trim="batchComment"
+                class="form-control"
+                rows="2"
+                placeholder="Comentario para todas (obligatorio)"
+              ></textarea>
+              <div class="d-flex flex-column flex-sm-row gap-2">
+                <button class="btn btn-success" :disabled="guardandoBatch || !batchComment" @click="batchApprove">
+                  <i class="bi bi-check2-circle me-1"></i> Aprobar seleccionadas
+                </button>
+                <button class="btn btn-outline-danger" :disabled="guardandoBatch || !batchComment" @click="batchReject">
+                  <i class="bi bi-x-circle me-1"></i> Rechazar seleccionadas
+                </button>
+              </div>
+            </div>
+            <div class="small mt-2">
+              <span v-if="batchError" class="text-danger">{{ batchError }}</span>
+              <span v-if="batchOk" class="text-success">{{ batchOk }}</span>
+            </div>
+          </div>
+
           <div v-if="cargandoMes" class="text-center py-4">
             <div class="spinner-border"></div>
           </div>
+
           <template v-else>
             <!-- Mobile list (cards) -->
             <div class="d-lg-none">
               <div class="list-group list-group-flush">
-                <button
+                <div
                   v-for="r in listadoMesFiltrado"
                   :key="r.id"
-                  class="list-group-item list-group-item-action"
-                  @click="abrir(r)"
+                  class="list-group-item"
                 >
-                  <div class="d-flex justify-content-between">
-                    <div class="pe-2">
-                      <div class="fw-semibold text-truncate">{{ nameOf(r) }}</div>
-                      <div class="small text-muted text-truncate">{{ emailOf(r) || '—' }}</div>
-                      <div class="small text-muted">{{ r.categoria || '—' }} · {{ formatFecha(r.creadoEn) }}</div>
+                  <div class="d-flex">
+                    <div class="form-check me-2">
+                      <input
+                        class="form-check-input"
+                        type="checkbox"
+                        :value="r.id"
+                        v-model="selectedIds"
+                        @click.stop
+                        :id="`sel-m-${r.id}`"
+                      />
                     </div>
-                    <div class="text-end">
-                      <div class="fw-semibold text-nowrap">{{ formatCLP(r.monto || 0) }}</div>
-                      <span :class="['badge mt-1', badgeEstado(r.estado)]">{{ r.estado }}</span>
+                    <div class="flex-grow-1" @click="abrir(r)" style="cursor:pointer">
+                      <div class="d-flex justify-content-between">
+                        <div class="pe-2">
+                          <div class="fw-semibold text-truncate">{{ nameOf(r) }}</div>
+                          <div class="small text-muted text-truncate">{{ emailOf(r) || '—' }}</div>
+                          <div class="small text-muted">{{ r.categoria || '—' }} · {{ formatFecha(r.creadoEn) }}</div>
+                        </div>
+                        <div class="text-end">
+                          <div class="fw-semibold text-nowrap">{{ formatCLP(r.monto || 0) }}</div>
+                          <span :class="['badge mt-1', badgeEstado(r.estado)]">{{ r.estado }}</span>
+                        </div>
+                      </div>
                     </div>
                   </div>
-                </button>
+                </div>
+
                 <div v-if="!listadoMesFiltrado.length" class="text-center text-muted py-3">
                   Sin resultados en el período.
                 </div>
@@ -206,6 +272,15 @@
               <table class="table table-hover align-middle">
                 <thead class="table-light">
                   <tr>
+                    <th style="width:36px;" class="text-center">
+                      <input
+                        class="form-check-input"
+                        type="checkbox"
+                        :checked="allVisibleSelected"
+                        @change="toggleSelectAllVisible"
+                        :aria-label="'Seleccionar visibles'"
+                      />
+                    </th>
                     <th>Fecha</th>
                     <th>Usuario</th>
                     <th>Categoría</th>
@@ -215,14 +290,24 @@
                   </tr>
                 </thead>
                 <tbody>
-                  <tr v-for="r in listadoMesFiltrado" :key="r.id" @click="abrir(r)" style="cursor:pointer">
-                    <td class="small text-nowrap">{{ formatFecha(r.creadoEn) }}</td>
-                    <td class="text-truncate" style="max-width: 240px;">
+                  <tr v-for="r in listadoMesFiltrado" :key="r.id">
+                    <td class="text-center">
+                      <input
+                        class="form-check-input"
+                        type="checkbox"
+                        :value="r.id"
+                        v-model="selectedIds"
+                        @click.stop
+                        :aria-label="`Seleccionar ${r.id}`"
+                      />
+                    </td>
+                    <td class="small text-nowrap" @click="abrir(r)" style="cursor:pointer">{{ formatFecha(r.creadoEn) }}</td>
+                    <td class="text-truncate" style="max-width: 240px;" @click="abrir(r)">
                       <div class="fw-semibold text-truncate">{{ nameOf(r) }}</div>
                       <div class="small text-muted text-truncate">{{ emailOf(r) || '—' }}</div>
                     </td>
-                    <td>{{ r.categoria || '—' }}</td>
-                    <td class="text-end">{{ formatCLP(r.monto || 0) }}</td>
+                    <td @click="abrir(r)" style="cursor:pointer">{{ r.categoria || '—' }}</td>
+                    <td class="text-end" @click="abrir(r)" style="cursor:pointer">{{ formatCLP(r.monto || 0) }}</td>
                     <td><span :class="['badge', badgeEstado(r.estado)]">{{ r.estado }}</span></td>
                     <td class="text-end">
                       <div class="btn-group btn-group-sm" @click.stop>
@@ -231,7 +316,7 @@
                     </td>
                   </tr>
                   <tr v-if="!listadoMesFiltrado.length">
-                    <td colspan="6" class="text-center text-muted py-4">Sin resultados en el período.</td>
+                    <td colspan="7" class="text-center text-muted py-4">Sin resultados en el período.</td>
                   </tr>
                 </tbody>
               </table>
@@ -241,13 +326,8 @@
       </div>
     </div>
 
-    <!-- Offcanvas detalle -->
-    <div
-      class="offcanvas offcanvas-end show"
-      tabindex="-1"
-      v-if="detalle"
-      @click.self="cerrarDetalle"
-    >
+    <!-- Offcanvas detalle (individual) -->
+    <div class="offcanvas offcanvas-end show" tabindex="-1" v-if="detalle" @click.self="cerrarDetalle">
       <div class="offcanvas-header border-bottom">
         <h5 class="offcanvas-title">
           Rendición
@@ -373,17 +453,34 @@ import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { db } from '@/firebase'
 import {
   collection, query, where, orderBy, limit, onSnapshot,
-  doc, updateDoc, serverTimestamp
+  doc, updateDoc, serverTimestamp, writeBatch
 } from 'firebase/firestore'
+import { useRouter } from 'vue-router'
 
-// --- UI responsive ---
+const router = useRouter()
+function goExport () {
+  const query = {
+    anio: String(filtroAnio.value),
+    mes: String(filtroMes.value),
+  }
+  if (selectedIds.value.length) {
+    query.ids = selectedIds.value.join(',')     // ej: ids=abc,def,ghi
+  }
+
+  // Usa el NOMBRE de la ruta (recomendado):
+  router.push({ name: 'exportar.rendiciones', query })
+
+  // Si en tu router usaste path en vez de name:
+  // router.push({ path: '/exportar-rendiciones', query })
+}
+/* ---------------- UI responsive ---------------- */
 const showFiltros = ref(false)
 
-// ---- CONFIG
+/* ---------------- CONFIG ---------------- */
 const COL = 'rendiciones'
 const FECHA_CAMPO = 'creadoEn'
 
-// Fechas
+/* ---------------- Fechas ---------------- */
 const ahora = new Date()
 const meses = [
   { value: 0,  label: 'Enero' }, { value: 1,  label: 'Febrero' }, { value: 2,  label: 'Marzo' },
@@ -401,7 +498,7 @@ const rangoMes = computed(() => {
   return { start, end }
 })
 
-// Estado
+/* ---------------- Estado ---------------- */
 const cargandoPend = ref(true)
 const cargandoMes = ref(true)
 const ultimasPendientes = ref([])
@@ -409,7 +506,7 @@ const listadoMes = ref([])
 
 const filtroEstadoListado = ref('') // '', 'pendiente', 'aprobada', 'rechazada'
 
-// KPIs
+/* -------- KPIs -------- */
 const kpis = computed(() => {
   const p = listadoMes.value.filter(r => r.estado === 'pendiente').length
   const a = listadoMes.value.filter(r => r.estado === 'aprobada').length
@@ -436,7 +533,7 @@ const listadoMesFiltrado = computed(() => {
   return listadoMes.value.filter(r => r.estado === filtroEstadoListado.value)
 })
 
-// Helpers
+/* -------- Helpers nombre/email -------- */
 function emailOf (r) {
   const e = r?.correo ?? r?.email ?? r?.userEmail ?? r?.perfil?.email
   if (e) return e
@@ -451,14 +548,14 @@ function nameOf (r) {
   return r?.userId || '—'
 }
 
-// Detalle
+/* ---------------- Detalle (individual) ---------------- */
 const detalle = ref(null)
 const comentario = ref('')
 const guardando = ref(false)
 const errorComentario = ref('')
 const accionError = ref('')
 
-// Visor de imagen
+/* ---------------- Visor de imagen ---------------- */
 const visor = ref({ abierto: false, src: null, zoom: 1 })
 const abrirVisor = (src) => { visor.value = { abierto: true, src, zoom: 1 }; document.body.style.overflow = 'hidden' }
 const cerrarVisor = () => { visor.value = { abierto: false, src: null, zoom: 1 }; document.body.style.overflow = '' }
@@ -467,7 +564,28 @@ const zoomOut = () => { visor.value.zoom = Math.max(0.4, +(visor.value.zoom - 0.
 const zoomReset = () => { visor.value.zoom = 1 }
 const toggleZoom = () => { visor.value.zoom = visor.value.zoom === 1 ? 1.6 : 1 }
 
-// Subscripciones
+/* ---------------- Selección múltiple ---------------- */
+const selectedIds = ref([])  // array de IDs seleccionados
+const batchComment = ref('')
+const guardandoBatch = ref(false)
+const batchError = ref('')
+const batchOk = ref('')
+
+const clearSelection = () => { selectedIds.value = [] }
+const selectAllVisible = () => { selectedIds.value = [...new Set([...selectedIds.value, ...listadoMesFiltrado.value.map(r => r.id)])] }
+const allVisibleSelected = computed(() =>
+  listadoMesFiltrado.value.length > 0 &&
+  listadoMesFiltrado.value.every(r => selectedIds.value.includes(r.id))
+)
+const toggleSelectAllVisible = (e) => {
+  if (e.target.checked) selectAllVisible()
+  else {
+    const visibles = new Set(listadoMesFiltrado.value.map(r => r.id))
+    selectedIds.value = selectedIds.value.filter(id => !visibles.has(id))
+  }
+}
+
+/* ---------------- Subscripciones ---------------- */
 let unsubPend = null
 let unsubMes = null
 
@@ -508,11 +626,11 @@ function recargarMes () {
   }, () => (cargandoMes.value = false))
 }
 
-// Abrir/cerrar detalle
+/* ---------------- Abrir/cerrar detalle ---------------- */
 function abrir (r) { detalle.value = r; comentario.value = ''; errorComentario.value = ''; accionError.value = '' }
 function cerrarDetalle () { detalle.value = null; comentario.value = ''; errorComentario.value = ''; accionError.value = '' }
 
-// Acciones
+/* ---------------- Acciones individuales ---------------- */
 async function aprobar () {
   if (!detalle.value) return
   if (!comentario.value.trim()) { errorComentario.value = 'Debes ingresar un comentario.'; return }
@@ -551,7 +669,60 @@ async function rechazar () {
   } finally { guardando.value = false }
 }
 
-// Formats
+/* ---------------- Acciones MASIVAS ---------------- */
+async function batchUpdateEstado (ids, nuevoEstado, comentarioComun) {
+  guardandoBatch.value = true
+  batchError.value = ''
+  batchOk.value = ''
+  try {
+    const chunkSize = 400
+    for (let i = 0; i < ids.length; i += chunkSize) {
+      const slice = ids.slice(i, i + chunkSize)
+      const batch = writeBatch(db)
+      for (const id of slice) {
+        const ref = doc(db, COL, id)
+        if (nuevoEstado === 'aprobada') {
+          batch.update(ref, {
+            estado: 'aprobada',
+            comentarioAprob: comentarioComun,
+            aprobadoPor: 'aprobador',
+            aprobadoEn: serverTimestamp(),
+            actualizadoEn: serverTimestamp()
+          })
+        } else {
+          batch.update(ref, {
+            estado: 'rechazada',
+            comentarioRechazo: comentarioComun,
+            rechazadoPor: 'aprobador',
+            rechazadoEn: serverTimestamp(),
+            actualizadoEn: serverTimestamp()
+          })
+        }
+      }
+      await batch.commit()
+    }
+    batchOk.value = `Se actualizaron ${ids.length} rendición(es).`
+    selectedIds.value = []
+    batchComment.value = ''
+  } catch (e) {
+    console.error(e)
+    batchError.value = e?.message || 'No se pudieron actualizar las rendiciones seleccionadas.'
+  } finally {
+    guardandoBatch.value = false
+  }
+}
+
+function batchApprove () {
+  if (!selectedIds.value.length) { batchError.value = 'Selecciona al menos una rendición.'; return }
+  if (!batchComment.value.trim()) { batchError.value = 'Debes ingresar un comentario para la acción masiva.'; return }
+  batchUpdateEstado(selectedIds.value, 'aprobada', batchComment.value.trim())
+}
+function batchReject () {
+  if (!selectedIds.value.length) { batchError.value = 'Selecciona al menos una rendición.'; return }
+  if (!batchComment.value.trim()) { batchError.value = 'Debes ingresar un comentario para la acción masiva.'; return }
+  batchUpdateEstado(selectedIds.value, 'rechazada', batchComment.value.trim())
+}
+
 const formatCLP = (n) => { try { return new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP', maximumFractionDigits: 0 }).format(n || 0) } catch { return `$${n}` } }
 const formatFecha = (ts) => {
   try {
@@ -563,10 +734,9 @@ const badgeEstado = (estado) => ({ pendiente:'text-bg-warning', aprobada:'text-b
 </script>
 
 <style scoped>
-/* Filtros tarjeta */
+
 .card-filtros { border-radius: 12px; }
 
-/* Offcanvas responsive (SPA custom) */
 .offcanvas {
   display: block;
   visibility: visible;
@@ -574,7 +744,7 @@ const badgeEstado = (estado) => ({ pendiente:'text-bg-warning', aprobada:'text-b
   width: 640px;
   max-width: 100vw;
   position: fixed;
-  inset: 0 0 0 auto; /* right panel */
+  inset: 0 0 0 auto;
   box-shadow: -12px 0 24px rgba(0,0,0,.08);
   z-index: 1080;
 }
@@ -583,15 +753,11 @@ const badgeEstado = (estado) => ({ pendiente:'text-bg-warning', aprobada:'text-b
   overflow: auto;
 }
 @media (max-width: 991.98px) {
-  .offcanvas {
-    width: 100vw;   /* full-width en móviles */
-  }
+  .offcanvas { width: 100vw; }
 }
 
-/* Imagen */
 .comprobante-thumb { cursor: zoom-in; user-select: none; }
 
-/* Visor */
 .image-viewer { background: rgba(0,0,0,.6); z-index: 1080; }
 .image-viewer .modal-dialog { max-width: min(1100px, 96vw); margin: 1.25rem auto; }
 .viewer-canvas {

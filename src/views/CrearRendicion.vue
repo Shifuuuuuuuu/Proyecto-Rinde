@@ -55,34 +55,39 @@
             <input v-model="fecha" type="date" class="form-control" required />
           </div>
 
+          <!-- Documento: tipo + número -->
+          <div class="col-md-6">
+            <label class="form-label">Documento</label>
+            <div class="input-group">
+              <select v-model="tipoDoc" class="form-select" required>
+                <option disabled value="">Selecciona...</option>
+                <option value="Boleta">Boleta</option>
+                <option value="Factura">Factura</option>
+              </select>
+              <input
+                v-model.trim="numeroDoc"
+                class="form-control"
+                placeholder="N° de boleta/factura"
+                required
+                maxlength="30"
+                @input="numeroDoc = numeroDoc.replace(/[^0-9A-Za-z-]/g,'')"
+              />
+            </div>
+            <div class="form-text">Ingresa el número tal como aparece en el comprobante.</div>
+          </div>
+
+          <!-- Categoría -->
           <div class="col-md-6">
             <label class="form-label">Categoría</label>
             <select v-model="categoria" class="form-select" required>
               <option disabled value="">Selecciona...</option>
-              <option>Transporte</option>
-              <option>Alimentación</option>
-              <option>Alojamiento</option>
-              <option>Insumos</option>
-              <option>Otros</option>
+              <option v-for="c in CATEGORIAS" :key="c" :value="c">{{ c }}</option>
             </select>
           </div>
 
           <div class="col-md-6">
             <label class="form-label">Motivo</label>
             <input v-model="motivo" class="form-control" required placeholder="Ej: Taxi a reunión con cliente" />
-          </div>
-
-          <div class="col-md-6">
-            <label class="form-label">Forma de pago</label>
-            <select v-model="formaPago" class="form-select">
-              <option disabled value="">Selecciona...</option>
-              <option>Efectivo</option>
-              <option>Débito</option>
-              <option>Crédito</option>
-              <option>Transferencia</option>
-              <option>Webpay</option>
-              <option>Otros</option>
-            </select>
           </div>
 
           <div class="col-12">
@@ -173,7 +178,6 @@
                 <span v-if="autofillInfo.montoOk" class="badge text-bg-success me-1">Monto actualizado</span>
                 <span v-if="autofillInfo.fechaOk" class="badge text-bg-success me-1">Fecha actualizada</span>
                 <span v-if="autofillInfo.catOk" class="badge text-bg-success me-1">Categoría sugerida</span>
-                <span v-if="autofillInfo.pagoOk" class="badge text-bg-success">Forma de pago sugerida</span>
               </div>
             </div>
           </div>
@@ -219,8 +223,7 @@
     </div>
   </div>
 
-  <!-- Modal Tomar foto (SPA, sin Bootstrap JS) -->
-<!-- Modal Tomar foto -->
+  <!-- Modal Tomar foto -->
   <div v-if="photoActive" class="modal-backdrop-custom" @click.self="closePhotoCapture">
     <div class="modal-card">
       <div class="modal-header">
@@ -241,7 +244,6 @@
           <canvas ref="photoCanvasEl" class="d-none"></canvas>
         </div>
 
-        <!-- NUEVO: estado de preparación -->
         <div class="small mt-2" :class="photoReady ? 'text-success' : 'text-muted'">
           <template v-if="!photoReady">
             <span class="spinner-border spinner-border-sm me-1"></span> Preparando cámara…
@@ -264,7 +266,6 @@
       </div>
     </div>
   </div>
-
 </template>
 
 <script setup>
@@ -277,6 +278,19 @@ import { addDoc, collection, serverTimestamp, Timestamp } from 'firebase/firesto
 const auth = useAuthStore()
 const router = useRouter()
 
+// Categorías solicitadas
+const CATEGORIAS = [
+  'Gastos de estacionamiento',
+  'Gastos notariales y legales',
+  'Gastos de bencina con boleta',
+  'Artículos de aseo con boleta',
+  'Útiles y Artículos de oficina con boleta',
+  'Gastos varios con boleta',
+  'proveedores',
+  'Gastos de colación con boleta',
+  'Gastos de movilización - pasajes con boletas'
+]
+
 // Campos del formulario
 const monto = ref(null)
 const moneda = ref('CLP')
@@ -284,7 +298,10 @@ const categoria = ref('')
 const motivo = ref('')
 const notas = ref('')
 const fecha = ref('')
-const formaPago = ref('')
+
+// NUEVO: documento
+const tipoDoc = ref('')       // 'Boleta' | 'Factura'
+const numeroDoc = ref('')     // número/fólio
 
 // Foto (miniatura base64 para Firestore)
 const fileInput = ref(null)
@@ -331,7 +348,8 @@ const limpiarFormulario = () => {
   motivo.value = ''
   notas.value = ''
   fecha.value = ''
-  formaPago.value = ''
+  tipoDoc.value = ''
+  numeroDoc.value = ''
   limpiarFoto()
   ok.value = false
   error.value = ''
@@ -391,7 +409,8 @@ let mediaStream = null
 let rafId = null
 let barcodeDetector = null
 let zxingReader = null
-const autofillInfo = ref({ montoOk: false, fechaOk: false, catOk: false, pagoOk: false })
+// quitamos pagoOk
+const autofillInfo = ref({ montoOk: false, fechaOk: false, catOk: false })
 
 function waitForVideoReady (v) {
   return new Promise((resolve) => {
@@ -410,14 +429,12 @@ function waitForVideoReady (v) {
 async function startScanner () {
   scanError.value = ''
   lastScan.value = ''
-  autofillInfo.value = { montoOk: false, fechaOk: false, catOk: false, pagoOk: false }
+  autofillInfo.value = { montoOk: false, fechaOk: false, catOk: false }
   scannerInfo.value = ''
 
   try {
-    // Si estaba abierta la cámara del modal "Tomar foto", ciérrala
     await closePhotoCapture()
 
-    // Detector nativo (si existe)
     if ('BarcodeDetector' in window && !barcodeDetector) {
       try {
         const supported = await window.BarcodeDetector.getSupportedFormats?.() || ['qr_code']
@@ -426,13 +443,11 @@ async function startScanner () {
         barcodeDetector = new window.BarcodeDetector({ formats })
         scannerInfo.value = `Usando detector nativo (${formats.join(', ') || 'qr_code'}).`
       } catch {
-        // si falla getSupportedFormats igual probamos con defaults
         barcodeDetector = new window.BarcodeDetector({ formats: ['qr_code','code_128','ean_13'] })
         scannerInfo.value = 'Usando detector nativo.'
       }
     }
 
-    // Permiso de cámara
     mediaStream = await navigator.mediaDevices.getUserMedia({
       video: { facingMode: { ideal: currentFacing }, width: { ideal: 1280 }, height: { ideal: 720 } },
       audio: false
@@ -456,7 +471,6 @@ async function startScanner () {
     if (barcodeDetector) {
       loopDetectNative()
     } else {
-      // Fallback ZXing (si lo instalaste)
       try {
         const ZXing = await import(/* @vite-ignore */ '@zxing/library')
         zxingReader = new ZXing.BrowserMultiFormatReader()
@@ -464,8 +478,9 @@ async function startScanner () {
         zxingReader.decodeFromVideoDevice(null, videoEl.value, (result) => {
           if (result) handleScan(result.getText())
         })
-      // eslint-disable-next-line no-unused-vars
       } catch (e) {
+        console.error(e)
+        scanError.value = e?.message || 'No se pudo activar la cámara.'
         scanError.value = 'Tu navegador no soporta el detector nativo y ZXing no está instalado. Ejecuta: npm i @zxing/library'
       }
     }
@@ -502,30 +517,26 @@ function loopDetectNative () {
   rafId = requestAnimationFrame(tick)
 }
 
+// Heurística categoría (puedes ajustarla a tu lista si quieres)
 function suggestCategoryFromText (t) {
   const s = t.toLowerCase()
-  if (/(uber|didí|didi|cabify|taxi|bencina|combustible|peaje|pasaje|bus|metro|transporte)/i.test(s)) return 'Transporte'
-  if (/(restaurant|restaurante|almuerzo|comida|supermercado|super|minimarket|panadería|panaderia|caf(e|é)|snack|colación|colacion)/i.test(s)) return 'Alimentación'
-  if (/(hotel|hostal|hospedaje|airbnb|motel)/i.test(s)) return 'Alojamiento'
-  if (/(ferreter(ía|ia)|insumo|papeler(ía|ia)|librer(ía|ia)|repuesto|material)/i.test(s)) return 'Insumos'
-  return 'Otros'
-}
-function suggestPaymentFromText (t) {
-  const s = t.toLowerCase()
-  if (/(efectivo|cash)/i.test(s)) return 'Efectivo'
-  if (/(d[eé]bito|debit|redcompra)/i.test(s)) return 'Débito'
-  if (/(cr[eé]dito|credit)/i.test(s)) return 'Crédito'
-  if (/(transfer|transferencia|traspaso|spei)/i.test(s)) return 'Transferencia'
-  if (/(webpay|paypal|mercadopago|flow)/i.test(s)) return 'Webpay'
-  return 'Otros'
+  if (/(estacionamiento|parking)/i.test(s)) return 'Gastos de estacionamiento'
+  if (/(notar|legal|abogada|abogado)/i.test(s)) return 'Gastos notariales y legales'
+  if (/(bencina|combustible|gasolina)/i.test(s)) return 'Gastos de bencina con boleta'
+  if (/(aseo|limpieza|cloro|detergente)/i.test(s)) return 'Artículos de aseo con boleta'
+  if (/(útiles|utiles|oficina|papeler|lápiz|lapiz)/i.test(s)) return 'Útiles y Artículos de oficina con boleta'
+  if (/(colación|colacion|almuerzo|comida|sandwich)/i.test(s)) return 'Gastos de colación con boleta'
+  if (/(pasaje|bus|metro|taxi|uber|cabify|moviliz)/i.test(s)) return 'Gastos de movilización - pasajes con boletas'
+  if (/(proveed|factura)/i.test(s)) return 'proveedores'
+  return 'Gastos varios con boleta'
 }
 
 function handleScan (text) {
   if (!text) return
   lastScan.value = String(text).trim()
-  autofillInfo.value = { montoOk: false, fechaOk: false, catOk: false, pagoOk: false }
+  autofillInfo.value = { montoOk: false, fechaOk: false, catOk: false }
 
-  // 1) Monto (SII: <MntTotal>12345</MntTotal> o MntTotal=12345)
+  // Monto
   let montoTxt = null
   const m1 = /<MntTotal>\s*([\d.,]+)\s*<\/MntTotal>/i.exec(lastScan.value)
   if (m1?.[1]) montoTxt = m1[1]
@@ -547,49 +558,43 @@ function handleScan (text) {
     const n = Number(montoTxt.replace(/\./g,'').replace(/,/g,'.'))
     if (!Number.isNaN(n) && n > 0) {
       monto.value = n
-      // si parece decimal con coma (ej. 12,50) podrías asumir otra moneda; por defecto CLP:
-      if (!/[,]\d{2}$/.test(montoTxt)) moneda.value = 'CLP'
+      moneda.value = 'CLP'
       syncStep()
       autofillInfo.value.montoOk = true
     }
   }
 
-  // 2) Fecha (SII: <FchEmis>YYYY-MM-DD</FchEmis> o variantes)
+  // Fecha
   let fStr = null
   const f1 = /<FchEmis>\s*(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})\s*<\/FchEmis>/i.exec(lastScan.value)
-  const f2 = /(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})/.exec(lastScan.value) // yyyy-mm-dd
-  const f3 = /(\d{1,2})[/-](\d{1,2})[/-](\d{4})/.exec(lastScan.value)     // dd/mm/yyyy
+  const f2 = /(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})/.exec(lastScan.value)
+  const f3 = /(\d{1,2})[/-](\d{1,2})[/-](\d{4})/.exec(lastScan.value)
   if (f1) {
-    const [ y, mo, d] = f1
+    // eslint-disable-next-line no-unused-vars
+    const [ _all, y, mo, d] = f1
     fStr = `${y}-${String(mo).padStart(2,'0')}-${String(d).padStart(2,'0')}`
   } else if (f2) {
-    const [ y, mo, d] = f2
+    // eslint-disable-next-line no-unused-vars
+    const [ _a, y, mo, d] = f2
     fStr = `${y}-${String(mo).padStart(2,'0')}-${String(d).padStart(2,'0')}`
   } else if (f3) {
-    const [ d, mo, y] = f3
+    // eslint-disable-next-line no-unused-vars
+    const [ _b, d, mo, y] = f3
     fStr = `${y}-${String(mo).padStart(2,'0')}-${String(d).padStart(2,'0')}`
   }
   if (fStr) { fecha.value = fStr; autofillInfo.value.fechaOk = true }
 
-  // 3) Categoría (heurística)
+  // Categoría
   const catSugerida = suggestCategoryFromText(lastScan.value)
   if (!categoria.value && catSugerida) {
     categoria.value = catSugerida
     autofillInfo.value.catOk = true
   }
 
-  // 4) Forma de pago (heurística)
-  const pagoSugerido = suggestPaymentFromText(lastScan.value)
-  if (!formaPago.value && pagoSugerido) {
-    formaPago.value = pagoSugerido
-    autofillInfo.value.pagoOk = true
-  }
-
-  // 5) Agregar a notas (no pisa lo anterior)
+  // Adjuntar al campo notas (no pisa lo anterior)
   const prefix = notas.value?.trim() ? (notas.value.trim() + '\n\n') : ''
   notas.value = `${prefix}Código escaneado:\n${lastScan.value}`
 
-  // auto-detener
   stopScanner()
 }
 
@@ -604,14 +609,14 @@ async function stopScanner () {
     if (rafId) cancelAnimationFrame(rafId)
     rafId = null
     if (zxingReader) {
-      try { zxingReader.reset() } catch {error.value = 'Error al detener ZXing.'}
+      try { zxingReader.reset() } catch {error.value = 'no se puede ver la cámara'}
       zxingReader = null
     }
     if (mediaStream) {
       mediaStream.getTracks().forEach(t => t.stop())
       mediaStream = null
     }
-  } catch {error.value = 'No se pudo cerrar la cámara.'}
+  } catch {error.value = 'no se puede ver la cámara'}
   scannerActive.value = false
 }
 
@@ -625,15 +630,12 @@ const photoCanvasEl = ref(null)
 let photoStream = null
 const photoReady = ref(false)
 
-function waitForVideoReadyGeneric (v) {
-  return waitForVideoReady(v)
-}
+function waitForVideoReadyGeneric (v) { return waitForVideoReady(v) }
 
 async function openPhotoCapture () {
   photoError.value = ''
   photoReady.value = false
   try {
-    // cerrar escáner si está activo
     await stopScanner()
 
     photoStream = await navigator.mediaDevices.getUserMedia({
@@ -670,7 +672,7 @@ async function closePhotoCapture () {
       photoStream.getTracks().forEach(t => t.stop())
       photoStream = null
     }
-  } catch {error.value = 'No se pudo cerrar la cámara.'}
+  } catch {error.value = 'no se pudo ver la cámara'}
   photoReady.value = false
   photoActive.value = false
 }
@@ -709,7 +711,6 @@ onBeforeUnmount(() => {
   closePhotoCapture()
 })
 
-
 // --------------------- Guardar ---------------------
 const guardar = async () => {
   error.value = ''
@@ -717,18 +718,30 @@ const guardar = async () => {
   cargando.value = true
   try {
     if (!auth.uid) throw new Error('No hay sesión activa.')
+    if (!tipoDoc.value || !numeroDoc.value) throw new Error('Falta el tipo y/o número de documento.')
 
+    // Campos base
     const docData = {
       userId: auth.uid,
       nombre: auth.perfil?.nombre || 'Anónimo',
       email: auth.perfil?.email || '',
       empresa: auth.perfil?.empresa || null,
+
       monto: Number(monto.value || 0),
       moneda: moneda.value,
       categoria: categoria.value,
       motivo: (motivo.value || '').trim(),
       notas: (notas.value || '').trim() || null,
-      formaPago: formaPago.value || null,
+
+      // Documento
+      tipoDocumento: tipoDoc.value,               // 'Boleta' | 'Factura'
+      numeroDocumento: numeroDoc.value,           // string
+      folio: numeroDoc.value,                     // compatibilidad con exportadores
+
+      // Compat: campos separados que quizás usas en otros lados
+      ...(tipoDoc.value === 'Boleta'  ? { numeroBoleta:  numeroDoc.value } : {}),
+      ...(tipoDoc.value === 'Factura' ? { numeroFactura: numeroDoc.value } : {}),
+
       fecha: fecha.value ? Timestamp.fromDate(new Date(fecha.value)) : null,
       estado: 'pendiente',
       creadoEn: serverTimestamp(),

@@ -18,7 +18,7 @@ const AprobadorRendiciones = () => import('@/views/AprobadorRendiciones.vue')
 const Reportes = () => import('@/views/Reportes.vue')
 const Soporte = () => import('@/views/Soporte.vue')
 const Perfil = () => import('@/views/Perfil.vue')
-
+const Rendiciones = () => import('@/views/ExportadorRendiciones.vue')
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
   routes: [
@@ -41,6 +41,9 @@ const router = createRouter({
     { path: '/reportes', name: 'reportes', component: Reportes, meta: { requiresAuth: true } },
     { path: '/perfil', name: 'perfil', component: Perfil, meta: { requiresAuth: true } },
     { path: '/soporte', name: 'soporte', component: Soporte, meta: { requiresAuth: true } },
+    { path: '/rendiciones',  name: 'exportar.rendiciones', component: Rendiciones,meta: { requiresAuth: true }
+    },
+
 
     { path: '/:pathMatch(.*)*', redirect: '/' },
   ],

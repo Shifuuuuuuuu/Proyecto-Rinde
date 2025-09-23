@@ -1,6 +1,6 @@
 <template>
   <!-- derecha, levantado 96px para no tapar al de soporte -->
-  <div class="toast-container position-fixed end-0 p-3" style="z-index:1080;">
+  <div class="toast-container position-fixed end-0 p-3" style="z-index:1080; top: 11%;">
     <div
       v-for="t in safeToasts"
       :key="t.id"
