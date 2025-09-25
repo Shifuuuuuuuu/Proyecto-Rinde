@@ -1,776 +1,386 @@
 <!-- eslint-disable vue/multi-word-component-names -->
 <template>
-  <div class="card shadow-sm">
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <h1 class="h5 mb-0">Reportes</h1>
+  </div>
+
+  <!-- Filtros -->
+  <div class="card shadow-sm mb-3">
     <div class="card-body">
-      <!-- Header -->
-      <div class="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-2">
-        <div>
-          <h2 class="h5 mb-1">Nueva rendición</h2>
-          <p class="text-muted mb-0">Registra un gasto con su detalle y (opcional) una foto del comprobante.</p>
+      <div class="row g-3">
+        <div class="col-12 col-md-3">
+          <label class="form-label">Desde</label>
+          <input v-model="fDesde" type="date" class="form-control" />
         </div>
-        <div class="d-flex gap-2">
-          <button type="button" class="btn btn-outline-secondary btn-sm" @click="volver">
-            <i class="bi bi-arrow-left me-1"></i> Volver
-          </button>
-          <RouterLink to="/mis-rendiciones" class="btn btn-outline-secondary btn-sm">
-            <i class="bi bi-journal-text me-1"></i> Mis rendiciones
-          </RouterLink>
+        <div class="col-12 col-md-3">
+          <label class="form-label">Hasta</label>
+          <input v-model="fHasta" type="date" class="form-control" />
+        </div>
+        <div class="col-6 col-md-2">
+          <label class="form-label">Estado</label>
+          <select v-model="fEstado" class="form-select">
+            <option value="todos">Todos</option>
+            <option value="pendiente">Pendiente</option>
+            <option value="aprobada">Aprobada</option>
+            <option value="rechazada">Rechazada</option>
+          </select>
+        </div>
+        <div class="col-6 col-md-2">
+          <label class="form-label">Moneda</label>
+          <select v-model="fMoneda" class="form-select">
+            <option value="todas">Todas</option>
+            <option value="CLP">CLP</option>
+            <option value="USD">USD</option>
+            <option value="EUR">EUR</option>
+            <option value="UF">UF</option>
+          </select>
+        </div>
+        <div class="col-12 col-md-2">
+          <label class="form-label">Categoría</label>
+          <select v-model="fCategoria" class="form-select">
+            <option value="todas">Todas</option>
+            <option v-for="c in categoriasDisponibles" :key="c" :value="c">{{ c }}</option>
+          </select>
         </div>
       </div>
 
-      <!-- Formulario -->
-      <form @submit.prevent="guardar" class="needs-validation" novalidate>
-        <div class="row g-3">
-          <!-- Monto + Moneda -->
-          <div class="col-md-4">
-            <label class="form-label">Monto</label>
-            <div class="input-group">
-              <span class="input-group-text">{{ simboloMoneda }}</span>
-              <input
-                v-model.number="monto"
-                @blur="normalizarMonto"
-                :step="stepMoneda"
-                :min="0"
-                type="number"
-                inputmode="decimal"
-                class="form-control"
-                required
-              />
-            </div>
-            <div class="form-text">Ej.: 12500 para CLP, 12.50 para USD/EUR, 1.2 para UF</div>
-          </div>
-
-          <div class="col-md-4">
-            <label class="form-label">Moneda</label>
-            <select v-model="moneda" class="form-select" @change="syncStep" required>
-              <option value="CLP">CLP — Peso chileno</option>
-              <option value="USD">USD — Dólar</option>
-              <option value="EUR">EUR — Euro</option>
-              <option value="UF">UF — Unidad de Fomento</option>
-            </select>
-            <div class="form-text">Solo se guarda el monto con su moneda (sin conversión automática).</div>
-          </div>
-
-          <div class="col-md-4">
-            <label class="form-label">Fecha del gasto</label>
-            <input v-model="fecha" type="date" class="form-control" required />
-          </div>
-
-          <!-- Documento: tipo + número -->
-          <div class="col-md-6">
-            <label class="form-label">Documento</label>
-            <div class="input-group">
-              <select v-model="tipoDoc" class="form-select" required>
-                <option disabled value="">Selecciona...</option>
-                <option value="Boleta">Boleta</option>
-                <option value="Factura">Factura</option>
-              </select>
-              <input
-                v-model.trim="numeroDoc"
-                class="form-control"
-                placeholder="N° de boleta/factura"
-                required
-                maxlength="30"
-                @input="numeroDoc = numeroDoc.replace(/[^0-9A-Za-z-]/g,'')"
-              />
-            </div>
-            <div class="form-text">Ingresa el número tal como aparece en el comprobante.</div>
-          </div>
-
-          <!-- Categoría -->
-          <div class="col-md-6">
-            <label class="form-label">Categoría</label>
-            <select v-model="categoria" class="form-select" required>
-              <option disabled value="">Selecciona...</option>
-              <option v-for="c in CATEGORIAS" :key="c" :value="c">{{ c }}</option>
-            </select>
-          </div>
-
-          <div class="col-md-6">
-            <label class="form-label">Motivo</label>
-            <input v-model="motivo" class="form-control" required placeholder="Ej: Taxi a reunión con cliente" />
-          </div>
-
-          <div class="col-12">
-            <label class="form-label">Notas (opcional)</label>
-            <textarea v-model="notas" class="form-control" rows="2" placeholder="Detalle adicional, centro de costo, etc."></textarea>
-          </div>
-
-          <!-- Comprobante -->
-          <div class="col-12">
-            <div class="d-flex justify-content-between align-items-center">
-              <label class="form-label mb-0">Comprobante (opcional)</label>
-              <small class="text-muted">Miniatura en Firestore. Para archivos completos, usar Storage.</small>
-            </div>
-
-            <div class="row g-3 mt-1">
-              <div class="col-md-7">
-                <div class="input-group">
-                  <input ref="fileInput" @change="onFile" type="file" accept="image/*" class="form-control" />
-                  <button class="btn btn-outline-secondary" type="button" @click="openPhotoCapture">
-                    <i class="bi bi-camera"></i> Tomar foto
-                  </button>
-                  <button type="button" class="btn btn-outline-secondary" @click="limpiarFoto" :disabled="!fotoPreview">
-                    <i class="bi bi-x-circle"></i>
-                    Quitar
-                  </button>
-                </div>
-                <div class="form-text">JPG/PNG; se comprime a máx. 1280px para la miniatura.</div>
-              </div>
-
-              <div class="col-md-5" v-if="fotoPreview">
-                <div class="border rounded p-2 d-flex align-items-center justify-content-center bg-light">
-                  <img :src="fotoPreview" alt="Vista previa" class="img-fluid rounded" style="max-height: 220px;" />
-                </div>
-                <div class="small text-muted mt-1">Vista previa</div>
-              </div>
-            </div>
-          </div>
-
-          <!-- ESCÁNER QR / BARRAS -->
-          <div class="col-12">
-            <label class="form-label">Escanear código (QR o barras)</label>
-            <div class="p-2 rounded border bg-light-subtle">
-              <!-- Estado inactivo -->
-              <div v-if="!scannerActive" class="d-grid gap-2">
-                <button class="btn btn-outline-danger" type="button" @click="startScanner">
-                  <i class="bi bi-qr-code-scan me-1"></i> Activar cámara
-                </button>
-                <small class="text-muted">
-                  Apunta al QR o PDF417 del DTE para extraer monto/fecha. Los lineales (Code128/EAN) suelen ser solo IDs de caja.
-                </small>
-                <div v-if="scannerInfo" class="small text-muted">{{ scannerInfo }}</div>
-              </div>
-
-              <!-- Estado activo -->
-              <div v-else>
-                <div class="position-relative rounded overflow-hidden" style="background:#000">
-                  <video ref="videoEl" autoplay playsinline muted class="w-100" style="max-height:280px; object-fit:cover"></video>
-                  <canvas ref="canvasEl" class="d-none"></canvas>
-                  <div
-                    class="position-absolute top-50 start-50 translate-middle border border-2 border-danger rounded"
-                    style="width:70%; height:55%; pointer-events:none;"
-                  ></div>
-                </div>
-
-                <div class="d-flex gap-2 mt-2 flex-wrap align-items-center">
-                  <button class="btn btn-outline-secondary" type="button" @click="stopScanner">
-                    <i class="bi bi-stop-circle me-1"></i> Detener
-                  </button>
-                  <button class="btn btn-outline-danger" type="button" @click="switchCamera" v-if="canSwitchCamera">
-                    <i class="bi bi-camera-reverse me-1"></i> Cambiar cámara
-                  </button>
-                  <button class="btn btn-outline-secondary" type="button" @click="toggleTorch" :disabled="!hasTorch">
-                    <i class="bi bi-lightning-charge me-1"></i> Linterna
-                  </button>
-                  <div class="ms-auto d-flex align-items-center gap-2" v-if="hasZoom">
-                    <small>Zoom</small>
-                    <input
-                      type="range"
-                      min="1"
-                      :max="maxZoom"
-                      step="0.1"
-                      v-model.number="zoomLevel"
-                      @input="setZoom(zoomLevel)"
-                      style="width:140px"
-                    />
-                  </div>
-                </div>
-
-                <div v-if="scannerInfo" class="small text-muted mt-1">{{ scannerInfo }}</div>
-                <div v-if="scanError" class="text-danger small mt-2">{{ scanError }}</div>
-              </div>
-            </div>
-
-            <!-- Resultado -->
-            <div v-if="lastScan" class="alert alert-light border mt-2 small">
-              <div class="fw-semibold mb-1">Código leído</div>
-              <div class="text-break">{{ lastScan }}</div>
-              <div class="mt-2">
-                <span v-if="autofillInfo.montoOk" class="badge text-bg-success me-1">Monto actualizado</span>
-                <span v-if="autofillInfo.fechaOk" class="badge text-bg-success me-1">Fecha actualizada</span>
-                <span v-if="autofillInfo.catOk" class="badge text-bg-success me-1">Categoría sugerida</span>
-              </div>
-            </div>
-          </div>
-
-          <!-- Vista previa -->
-          <div class="col-12">
-            <div class="alert alert-light border d-flex justify-content-between align-items-center">
-              <div>
-                <div class="small text-muted">Vista previa del monto</div>
-                <div class="fw-semibold">{{ previewMonto }}</div>
-              </div>
-              <span class="badge text-bg-warning">pendiente</span>
-            </div>
-          </div>
-
-          <div class="col-12">
-            <div class="alert alert-secondary py-2">
-              <ul class="mb-0 ps-3">
-                <li>Revisa la categoría y la moneda antes de guardar.</li>
-                <li>Asegúrate de que la fecha coincida con el comprobante.</li>
-                <li>Montos altos podrían requerir aprobación adicional.</li>
-              </ul>
-            </div>
-          </div>
-        </div>
-
-        <!-- Acciones -->
-        <div class="d-flex gap-2 mt-2">
-          <button class="btn btn-danger" :disabled="cargando">
-            <span v-if="!cargando"><i class="bi bi-check2-circle me-1"></i> Guardar</span>
-            <span v-else class="spinner-border spinner-border-sm"></span>
-          </button>
-          <button class="btn btn-outline-secondary" type="button" @click="limpiarFormulario" :disabled="cargando">
-            Limpiar
-          </button>
-        </div>
-
-        <p v-if="error" class="text-danger small mt-3">{{ error }}</p>
-        <p v-if="ok" class="text-success small mt-3">¡Rendición creada!</p>
-      </form>
+      <div class="d-flex flex-wrap gap-2 mt-3">
+        <button class="btn btn-outline-secondary" @click="resetFiltros">
+          <i class="bi bi-arrow-counterclockwise"></i> Reset
+        </button>
+      </div>
     </div>
   </div>
 
-  <!-- Modal Tomar foto -->
-  <div v-if="photoActive" class="modal-backdrop-custom" @click.self="closePhotoCapture">
-    <div class="modal-card">
-      <div class="modal-header">
-        <h5 class="modal-title"><i class="bi bi-camera me-2"></i> Tomar foto del comprobante</h5>
-        <button type="button" class="btn-close" @click="closePhotoCapture"></button>
-      </div>
-
-      <div class="modal-body">
-        <div class="position-relative rounded overflow-hidden" style="background:#000">
-          <video ref="photoVideoEl" autoplay playsinline muted class="w-100" style="max-height:420px; object-fit:cover"></video>
-          <canvas ref="photoCanvasEl" class="d-none"></canvas>
+  <!-- KPIs -->
+  <div class="row g-3">
+    <div class="col-12 col-md-3">
+      <div class="card shadow-sm h-100">
+        <div class="card-body">
+          <div class="text-muted small">Total filtrado</div>
+          <div class="fs-4 fw-semibold">{{ totalFiltradoTexto }}</div>
+          <div class="small text-muted">{{ filtradas.length }} rendición(es)</div>
         </div>
-
-        <div class="small mt-2" :class="photoReady ? 'text-success' : 'text-muted'">
-          <template v-if="!photoReady">
-            <span class="spinner-border spinner-border-sm me-1"></span> Preparando cámara…
-          </template>
-          <template v-else>
-            Cámara lista.
-          </template>
-        </div>
-
-        <div v-if="photoError" class="text-danger small mt-2">{{ photoError }}</div>
       </div>
+    </div>
+    <div class="col-4 col-md-3">
+      <div class="card shadow-sm h-100">
+        <div class="card-body">
+          <div class="text-muted small">Pendientes</div>
+          <div class="fs-4 fw-semibold">{{ countEstado('pendiente') }}</div>
+          <span class="badge text-bg-warning">pendiente</span>
+        </div>
+      </div>
+    </div>
+    <div class="col-4 col-md-3">
+      <div class="card shadow-sm h-100">
+        <div class="card-body">
+          <div class="text-muted small">Aprobadas</div>
+          <div class="fs-4 fw-semibold">{{ countEstado('aprobada') }}</div>
+          <span class="badge text-bg-success">aprobada</span>
+        </div>
+      </div>
+    </div>
+    <div class="col-4 col-md-3">
+      <div class="card shadow-sm h-100">
+        <div class="card-body">
+          <div class="text-muted small">Rechazadas</div>
+          <div class="fs-4 fw-semibold">{{ countEstado('rechazada') }}</div>
+          <span class="badge text-bg-danger">rechazada</span>
+        </div>
+      </div>
+    </div>
+  </div>
 
-      <div class="modal-footer">
-        <button class="btn btn-outline-secondary" type="button" @click="closePhotoCapture">Cancelar</button>
-        <button class="btn btn-danger" type="button" @click="capturePhoto" :disabled="!photoReady">
-          <i class="bi bi-camera-fill me-1"></i> Capturar
-        </button>
+  <!-- Gráficos -->
+  <div class="row g-3 mt-1">
+    <div class="col-12 col-lg-6">
+      <div class="card shadow-sm h-100">
+        <div class="card-body">
+          <div class="d-flex justify-content-between align-items-center mb-2">
+            <h6 class="mb-0">Distribución por categoría</h6>
+            <small class="text-muted">Dona</small>
+          </div>
+          <div v-if="!chartReady" class="text-muted small">Cargando gráfico…</div>
+          <canvas ref="catCanvas" height="220"></canvas>
+        </div>
+      </div>
+    </div>
+    <div class="col-12 col-lg-6">
+      <div class="card shadow-sm h-100">
+        <div class="card-body">
+          <div class="d-flex justify-content-between align-items-center mb-2">
+            <h6 class="mb-0">Gasto por mes</h6>
+            <small class="text-muted">Barras</small>
+          </div>
+          <div v-if="!chartReady" class="text-muted small">Cargando gráfico…</div>
+          <canvas ref="mesCanvas" height="220"></canvas>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Tabla -->
+  <div class="card shadow-sm mt-3">
+    <div class="card-body">
+      <h6 class="mb-2">Detalle filtrado</h6>
+      <div class="table-responsive">
+        <table class="table table-hover align-middle">
+          <thead class="table-light">
+            <tr>
+              <th>Fecha</th>
+              <th>Categoría</th>
+              <th>Motivo</th>
+              <th class="text-end">Monto</th>
+              <th>Moneda</th>
+              <th>Estado</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="x in filtradas" :key="x.id">
+              <td class="small text-nowrap">{{ formatFecha(x.fecha) }}</td>
+              <td>{{ x.categoria }}</td>
+              <td class="text-truncate" style="max-width: 360px;">{{ x.motivo }}</td>
+              <td class="text-end">{{ formatMoney(x.monto, x.moneda || 'CLP') }}</td>
+              <td>{{ x.moneda || 'CLP' }}</td>
+              <td><span :class="['badge', badgeClass(x.estado)]">{{ x.estado }}</span></td>
+              <td class="text-end">
+                <RouterLink class="btn btn-sm btn-outline-secondary" :to="{ name: 'detalle', params: { id: x.id } }">
+                  Ver
+                </RouterLink>
+              </td>
+            </tr>
+            <tr v-if="!filtradas.length">
+              <td colspan="7" class="text-center text-muted py-4">No hay resultados para los filtros aplicados.</td>
+            </tr>
+          </tbody>
+        </table>
       </div>
     </div>
   </div>
 </template>
 
 <script setup>
-import { ref, computed, onBeforeUnmount, nextTick } from 'vue'
-import { RouterLink, useRouter } from 'vue-router'
-import { useAuthStore } from '@/stores/auth'
+import { ref, onMounted, watch, computed, nextTick } from 'vue'
+import { RouterLink } from 'vue-router'
 import { db } from '@/firebase'
-import { addDoc, collection, serverTimestamp, Timestamp } from 'firebase/firestore'
-import { BrowserMultiFormatReader } from '@zxing/browser'
-import { BarcodeFormat, DecodeHintType } from '@zxing/library'
+import { collection, query, where, orderBy, onSnapshot } from 'firebase/firestore'
+import { useAuthStore } from '@/stores/auth'
 
 const auth = useAuthStore()
-const router = useRouter()
 
-// Categorías
-const CATEGORIAS = [
-  'Gastos de estacionamiento',
-  'Gastos notariales y legales',
-  'Gastos de bencina con boleta',
-  'Artículos de aseo con boleta',
-  'Útiles y Artículos de oficina con boleta',
-  'Gastos varios con boleta',
-  'proveedores',
-  'Gastos de colación con boleta',
-  'Gastos de movilización - pasajes con boletas'
-]
-
-// Formulario
-const monto = ref(null)
-const moneda = ref('CLP')
-const categoria = ref('')
-const motivo = ref('')
-const notas = ref('')
-const fecha = ref('')
-
-// Documento
-const tipoDoc = ref('')
-const numeroDoc = ref('')
-
-// Foto miniatura
-const fileInput = ref(null)
-const fotoPreview = ref(null)
-
-// Estado UI
-const cargando = ref(false)
+// Datos brutos
+const items = ref([])
 const error = ref('')
-const ok = ref(false)
+const cargando = ref(true)
 
-// Helpers dinero
-const simboloMoneda = computed(() => ({ CLP: '$', USD: '$', EUR: '€', UF: 'UF' }[moneda.value] || '$'))
-const stepMoneda = ref(100)
-const syncStep = () => { stepMoneda.value = (moneda.value === 'CLP') ? 100 : 0.01 }
-syncStep()
+// Filtros
+const fDesde = ref('')       // yyyy-mm-dd
+const fHasta = ref('')
+const fEstado = ref('todos')
+const fMoneda = ref('todas')
+const fCategoria = ref('todas')
+
+// Categorías disponibles (se llenan con lo que trae BD)
+const categoriasDisponibles = ref(['Transporte', 'Alimentación', 'Alojamiento', 'Insumos', 'Otros'])
+
+// Suscripción Firestore
+onMounted(() => {
+  try {
+    const qRef = query(
+      collection(db, 'rendiciones'),
+      where('userId', '==', auth.uid),
+      orderBy('creadoEn', 'desc')
+    )
+    onSnapshot(qRef, (snap) => {
+      items.value = snap.docs.map(d => ({ id: d.id, ...d.data() }))
+      // refrescar catálogo de categorías reales
+      const setCats = new Set(categoriasDisponibles.value)
+      for (const r of items.value) if (r.categoria) setCats.add(r.categoria)
+      categoriasDisponibles.value = Array.from(setCats).sort()
+      cargando.value = false
+      refreshCharts()
+    })
+  // eslint-disable-next-line no-unused-vars
+  } catch (e) {
+    error.value = 'No fue posible cargar los datos.'
+    cargando.value = false
+  }
+})
+
+watch([fDesde, fHasta, fEstado, fMoneda, fCategoria], () => {
+  refreshCharts()
+})
+
+// ---- Helpers formato
+const formatFecha = (ts) => {
+  try { const d = ts?.toDate ? ts.toDate() : new Date(ts); return new Intl.DateTimeFormat('es-CL').format(d) }
+  catch { return '-' }
+}
 const formatMoney = (value, code) => {
   const n = Number(value || 0)
-  if (code === 'CLP') return new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP', maximumFractionDigits: 0 }).format(n)
-  if (code === 'USD') return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(n)
-  if (code === 'EUR') return new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR' }).format(n)
-  if (code === 'UF') return `UF ${new Intl.NumberFormat('es-CL', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n)}`
+  if (code === 'CLP') return new Intl.NumberFormat('es-CL', { style:'currency', currency:'CLP', maximumFractionDigits:0 }).format(n)
+  if (code === 'USD') return new Intl.NumberFormat('en-US', { style:'currency', currency:'USD' }).format(n)
+  if (code === 'EUR') return new Intl.NumberFormat('es-ES', { style:'currency', currency:'EUR' }).format(n)
+  if (code === 'UF')  return `UF ${new Intl.NumberFormat('es-CL', { minimumFractionDigits:2, maximumFractionDigits:2 }).format(n)}`
   return n
 }
-const previewMonto = computed(() => formatMoney(monto.value, moneda.value))
-const normalizarMonto = () => {
-  if (monto.value == null || monto.value === '') return
-  let n = Number(monto.value)
-  if (Number.isNaN(n) || n < 0) n = 0
-  monto.value = (moneda.value === 'CLP') ? Math.round(n) : Math.round(n * 100) / 100
-}
+const badgeClass = (estado) =>
+  ({ pendiente:'text-bg-warning', aprobada:'text-bg-success', rechazada:'text-bg-danger' }[estado] || 'text-bg-secondary')
 
-const volver = () => router.back()
-const limpiarFoto = () => { fotoPreview.value = null; if (fileInput.value) fileInput.value.value = '' }
-const limpiarFormulario = () => {
-  monto.value = null; moneda.value = 'CLP'; categoria.value = ''; motivo.value = ''
-  notas.value = ''; fecha.value = ''; tipoDoc.value = ''; numeroDoc.value = ''
-  limpiarFoto(); ok.value = false; error.value = ''; syncStep()
-}
-const onFile = async (e) => {
-  const file = e.target.files?.[0]; if (!file) return
-  try { fotoPreview.value = await compressImageToDataURL(file, { maxW: 1280, maxH: 1280, quality: 0.7 }) }
-  catch { error.value = 'No pudimos procesar la imagen.'; limpiarFoto() }
-}
-const compressImageToDataURL = (file, { maxW = 1280, maxH = 1280, quality = 0.8 } = {}) =>
-  new Promise((resolve, reject) => {
-    const img = new Image(), reader = new FileReader()
-    reader.onload = () => {
-      img.onload = () => {
-        const { width, height } = img
-        const ratio = Math.min(maxW / width, maxH / height, 1)
-        const w = Math.round(width * ratio), h = Math.round(height * ratio)
-        const canvas = document.createElement('canvas'); canvas.width = w; canvas.height = h
-        canvas.getContext('2d').drawImage(img, 0, 0, w, h)
-        const isPng = file.type.includes('png'); const mime = isPng ? 'image/png' : 'image/jpeg'
-        const dataURL = canvas.toDataURL(mime, isPng ? undefined : quality)
-        const approxBytes = Math.ceil((dataURL.length * 3) / 4)
-        if (approxBytes > 250 * 1024) return reject(new Error('La miniatura quedó muy grande.'))
-        resolve(dataURL)
-      }
-      img.onerror = reject; img.src = reader.result
-    }
-    reader.onerror = reject; reader.readAsDataURL(file)
-  })
-
-// ------- ESCÁNER -------
-// Refs & estado
-const videoEl = ref(null)
-const canvasEl = ref(null)
-const scannerActive = ref(false)
-const scanError = ref('')
-const lastScan = ref('')
-const scannerInfo = ref('')
-const canSwitchCamera = ref(false)
-let currentFacing = 'environment'
-let mediaStream = null
-let rafId = null
-let barcodeDetector = null
-let zxingReader = null
-let currentTrack = null
-let currentDeviceId = null
-
-// Capacidades (flash/zoom)
-const torchOn = ref(false)
-const hasTorch = ref(false)
-const zoomLevel = ref(1)
-const maxZoom = ref(1)
-const hasZoom = ref(false)
-
-// Flags de autocompletado
-const autofillInfo = ref({ montoOk: false, fechaOk: false, catOk: false })
-
-function waitForVideoReady (v) {
-  return new Promise((resolve) => {
-    if (!v) return resolve()
-    if (v.readyState >= 2 && v.videoWidth) return resolve()
-    const onReady = () => { v.removeEventListener('loadedmetadata', onReady); v.removeEventListener('canplay', onReady); resolve() }
-    v.addEventListener('loadedmetadata', onReady, { once: true })
-    v.addEventListener('canplay', onReady, { once: true })
-  })
-}
-async function listVideoInputs() {
-  const devices = await navigator.mediaDevices.enumerateDevices()
-  return devices.filter(d => d.kind === 'videoinput')
-}
-function getZXingHints() {
-  const hints = new Map()
-  hints.set(DecodeHintType.POSSIBLE_FORMATS, [
-    BarcodeFormat.QR_CODE, BarcodeFormat.EAN_13, BarcodeFormat.EAN_8,
-    BarcodeFormat.CODE_128, BarcodeFormat.CODE_39, BarcodeFormat.ITF,
-    BarcodeFormat.UPC_A, BarcodeFormat.UPC_E, BarcodeFormat.CODABAR,
-    BarcodeFormat.DATA_MATRIX, BarcodeFormat.AZTEC, BarcodeFormat.PDF_417
-  ])
-  hints.set(DecodeHintType.TRY_HARDER, true)
-  return hints
-}
-
-async function startScanner () {
-  scanError.value = ''; lastScan.value = ''
-  autofillInfo.value = { montoOk: false, fechaOk: false, catOk: false }
-  scannerInfo.value = ''
+// ---- Lógica de filtros
+const inRange = (ts, desde, hasta) => {
   try {
-    await closePhotoCapture()
-    // Renderizar UI primero
-    scannerActive.value = true
-    await nextTick()
-
-    // Detector nativo (si soporta formatos útiles)
-    const wantFormats = ['qr_code','ean_13','ean_8','code_128','code_39','upc_a','upc_e','itf','codabar','data_matrix','aztec','pdf417']
-    if ('BarcodeDetector' in window && !barcodeDetector) {
-      try {
-        const supported = await window.BarcodeDetector.getSupportedFormats?.() || []
-        const formats = wantFormats.filter(f => supported.includes(f))
-        if (formats.length) { barcodeDetector = new window.BarcodeDetector({ formats }); scannerInfo.value = `Detector nativo: ${formats.join(', ')}` }
-        else { scannerInfo.value = 'Detector nativo sin formatos útiles; usaré ZXing.' }
-      } catch { scannerInfo.value = 'Detector nativo no disponible; usaré ZXing.' }
-    }
-
-    // Abrir cámara
-    const constraints = {
-      video: { facingMode: currentFacing, width: { ideal: 1280 }, height: { ideal: 720 }, advanced: [{ focusMode: 'continuous' }, { exposureMode: 'continuous' }] },
-      audio: false
-    }
-    mediaStream = await navigator.mediaDevices.getUserMedia(constraints)
-
-    // Conectar stream al <video>
-    const v = videoEl.value
-    if (!v) throw new Error('No se encontró el elemento <video>.')
-    v.srcObject = mediaStream
-    v.setAttribute('playsinline', '')
-    v.setAttribute('autoplay', '')
-    await v.play().catch(()=>{})
-    await waitForVideoReady(v)
-
-    // Cámaras disponibles
-    const inputs = await navigator.mediaDevices.enumerateDevices()
-    canSwitchCamera.value = inputs.filter(d => d.kind === 'videoinput').length > 1
-
-    // Capacidades
-    currentTrack = mediaStream.getVideoTracks()[0]
-    try {
-      const caps = currentTrack.getCapabilities?.() || {}
-      hasTorch.value = !!caps.torch
-      if (caps.zoom) {
-        maxZoom.value = caps.zoom.max || 1
-        await currentTrack.applyConstraints({ advanced: [{ zoom: Math.min(2, maxZoom.value) }] })
-        zoomLevel.value = Math.min(2, maxZoom.value)
-        hasZoom.value = true
-      } else { hasZoom.value = false }
-    } catch { /* no interrumpir */ }
-
-    // Decodificación
-    if (barcodeDetector) {
-      loopDetectNative()
-    } else {
-      zxingReader = new BrowserMultiFormatReader(getZXingHints(), 700)
-      const cams = inputs.filter(d => d.kind === 'videoinput')
-      const back = cams.find(d => /back|trasera|rear/i.test(d.label)) || cams[0]
-      currentDeviceId = back?.deviceId || undefined
-      scannerInfo.value = 'Usando ZXing (WASM).'
-      zxingReader.decodeFromVideoDevice(currentDeviceId ?? null, videoEl.value, (result/*, err, controls*/) => {
-        if (result?.getText) {
-          const fmt = result.getBarcodeFormat ? result.getBarcodeFormat() : null
-          handleScan(result.getText(), fmt)
-        }
-      })
-    }
-  } catch (e) {
-    console.error(e)
-    scanError.value = e?.message || 'No se pudo activar la cámara.'
-    stopScanner()
-  }
+    const d = ts?.toDate ? ts.toDate() : new Date(ts)
+    if (desde) { const dd = new Date(desde); if (d < dd) return false }
+    if (hasta) { const hh = new Date(hasta); hh.setHours(23,59,59,999); if (d > hh) return false }
+    return true
+  } catch { return true }
 }
 
-function loopDetectNative () {
-  const tick = async () => {
-    if (!scannerActive.value || !videoEl.value || !barcodeDetector) return
-    try {
-      const v = videoEl.value, c = canvasEl.value
-      if (c && v.videoWidth && v.videoHeight) {
-        c.width = v.videoWidth; c.height = v.videoHeight
-        c.getContext('2d').drawImage(v, 0, 0, c.width, c.height)
-        const detections = await barcodeDetector.detect(c)
-        if (detections && detections.length) {
-          const value = detections[0].rawValue || detections[0].rawValueText || ''
-          if (value) { handleScan(value, null); return }
-        }
-      }
-    } catch (e) { console.warn('Detector nativo error:', e) }
-    rafId = requestAnimationFrame(tick)
-  }
-  rafId = requestAnimationFrame(tick)
-}
+const filtradas = computed(() => {
+  let arr = items.value.filter(x => inRange(x.fecha || x.creadoEn, fDesde.value, fHasta.value))
+  if (fEstado.value !== 'todos') arr = arr.filter(x => x.estado === fEstado.value)
+  if (fMoneda.value !== 'todas') arr = arr.filter(x => (x.moneda || 'CLP') === fMoneda.value)
+  if (fCategoria.value !== 'todas') arr = arr.filter(x => x.categoria === fCategoria.value)
+  return arr
+})
 
-async function switchCamera () {
-  try {
-    if (zxingReader) {
-      const inputs = await listVideoInputs()
-      if (!inputs.length) return
-      const idx = inputs.findIndex(d => d.deviceId === currentDeviceId)
-      const next = inputs[(idx + 1) % inputs.length]
-      currentDeviceId = next.deviceId
-      await zxingReader.decodeFromVideoDevice(currentDeviceId, videoEl.value, (result) => {
-        if (result?.getText) {
-          const fmt = result.getBarcodeFormat ? result.getBarcodeFormat() : null
-          handleScan(result.getText(), fmt)
-        }
-      })
-      return
-    }
-    currentFacing = (currentFacing === 'environment') ? 'user' : 'environment'
-    await stopScanner()
-    await startScanner()
-  } catch (e) {
-    console.error(e)
-    scanError.value = 'No se pudo cambiar de cámara.'
-  }
-}
-
-async function toggleTorch () {
-  try {
-    if (!currentTrack) return
-    if (!hasTorch.value) { scanError.value = 'Este dispositivo/navegador no expone linterna.'; return }
-    torchOn.value = !torchOn.value
-    await currentTrack.applyConstraints({ advanced: [{ torch: torchOn.value }] }).catch(async () => {
-      await currentTrack.applyConstraints({ torch: torchOn.value })
-    })
-  } catch {
-    scanError.value = 'No se pudo cambiar la linterna.'
-  }
-}
-
-async function setZoom (factor) {
-  try {
-    if (!currentTrack || !hasZoom.value) return
-    zoomLevel.value = Math.min(Math.max(factor, 1), maxZoom.value || 1)
-    await currentTrack.applyConstraints({ advanced: [{ zoom: zoomLevel.value }] }).catch(async () => {
-      await currentTrack.applyConstraints({ zoom: zoomLevel.value })
-    })
-  } catch { scanError.value = 'No se pudo ajustar el zoom.' }
-}
-
-// Categoría sugerida
-function suggestCategoryFromText (t) {
-  const s = String(t || '').toLowerCase()
-  if (/(estacionamiento|parking)/i.test(s)) return 'Gastos de estacionamiento'
-  if (/(notar|legal|abogada|abogado)/i.test(s)) return 'Gastos notariales y legales'
-  if (/(bencina|combustible|gasolina)/i.test(s)) return 'Gastos de bencina con boleta'
-  if (/(aseo|limpieza|cloro|detergente)/i.test(s)) return 'Artículos de aseo con boleta'
-  if (/(útiles|utiles|oficina|papeler|lápiz|lapiz)/i.test(s)) return 'Útiles y Artículos de oficina con boleta'
-  if (/(colación|colacion|almuerzo|comida|sandwich)/i.test(s)) return 'Gastos de colación con boleta'
-  if (/(pasaje|bus|metro|taxi|uber|cabify|moviliz)/i.test(s)) return 'Gastos de movilización - pasajes con boletas'
-  if (/(proveed|factura)/i.test(s)) return 'proveedores'
-  return 'Gastos varios con boleta'
-}
-
-// === Parseo según formato ===
-function handleScan (raw, format = null) {
-  if (!raw) return
-  lastScan.value = String(raw).trim()
-  autofillInfo.value = { montoOk: false, fechaOk: false, catOk: false }
-
-  // ¿QR/PDF417 (DTE) o lineal?
-  const isMatrix = format === BarcodeFormat?.QR_CODE || format === BarcodeFormat?.PDF_417 || /https?:\/\//i.test(lastScan.value)
-
-  if (isMatrix) {
-    // 1) URL típica del SII ?t= & f= & fe=
-    try {
-      const urlMatch = lastScan.value.match(/https?:\/\/[^\s]+/i)?.[0]
-      if (urlMatch) {
-        const u = new URL(urlMatch)
-        const t = u.searchParams.get('t')   // monto
-        const f = u.searchParams.get('f')   // folio
-        const fe = u.searchParams.get('fe') // YYYY-MM-DD
-        if (t) {
-          const n = Number(t.replace(/\./g,'').replace(/,/g,'.'))
-          if (!Number.isNaN(n) && n > 0) { monto.value = n; moneda.value = 'CLP'; syncStep(); autofillInfo.value.montoOk = true }
-        }
-        if (f && !numeroDoc.value) numeroDoc.value = f
-        if (fe) { fecha.value = fe; autofillInfo.value.fechaOk = true }
-      }
-    } catch {error.value = 'Error al parsear la URL del código.'}
-
-    // 2) XML/Texto del DTE
-    let montoTxt = null
-    const m1 = /<MntTotal>\s*([\d.,]+)\s*<\/MntTotal>/i.exec(lastScan.value)
-    if (m1?.[1]) montoTxt = m1[1]
-    if (!montoTxt) {
-      const m2 = /MntTotal\s*[:=]\s*([\d.,]+)/i.exec(lastScan.value)
-      if (m2?.[1]) montoTxt = m2[1]
-    }
-    if (!montoTxt) {
-      const m3 = /(?:Total|Monto|Pagar)\s*[:=]?\s*\$?\s*([\d.]{3,}(?:,\d{2})?)/i.exec(lastScan.value)
-      if (m3?.[1]) montoTxt = m3[1]
-    }
-    if (!montoTxt) {
-      const nums = lastScan.value.match(/[\d.]{4,}(?:,\d{2})?/g) || []
-      if (nums.length) {
-        montoTxt = nums.sort((a,b)=> (Number(b.replace(/\./g,'').replace(',', '.')) - Number(a.replace(/\./g,'').replace(',', '.'))))[0]
-      }
-    }
-    if (montoTxt) {
-      const n = Number(montoTxt.replace(/\./g,'').replace(/,/g,'.'))
-      if (!Number.isNaN(n) && n > 0) { monto.value = n; moneda.value = 'CLP'; syncStep(); autofillInfo.value.montoOk = true }
-    }
-
-    // Fecha
-    let fStr = null
-    const f1 = /<FchEmis>\s*(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})\s*<\/FchEmis>/i.exec(lastScan.value)
-    const f2 = /(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})/.exec(lastScan.value)
-    const f3 = /(\d{1,2})[/-](\d{1,2})[/-](\d{4})/.exec(lastScan.value)
-    if (f1) { const [, y, mo, d] = f1; fStr = `${y}-${String(mo).padStart(2,'0')}-${String(d).padStart(2,'0')}` }
-    else if (f2) { const [, y, mo, d] = f2; fStr = `${y}-${String(mo).padStart(2,'0')}-${String(d).padStart(2,'0')}` }
-    else if (f3) { const [, d, mo, y] = f3; fStr = `${y}-${String(mo).padStart(2,'0')}-${String(d).padStart(2,'0')}` }
-    if (fStr) { fecha.value = fStr; autofillInfo.value.fechaOk = true }
-
+const totalFiltradoTexto = computed(() => {
+  // muestra total solo cuando hay una moneda seleccionada; si no, suma por CLP para referencia
+  if (fMoneda.value !== 'todas') {
+    const tot = filtradas.value.filter(x => (x.moneda || 'CLP') === fMoneda.value)
+      .reduce((acc, x) => acc + Number(x.monto || 0), 0)
+    return formatMoney(tot, fMoneda.value)
   } else {
-    // LINEALES: Code128/EAN/UPC — normalmente no traen monto/folio del DTE
-    const digits = lastScan.value.replace(/\D+/g,'')
-    if (digits && !numeroDoc.value) numeroDoc.value = digits
+    const tot = filtradas.value
+      .filter(x => (x.moneda || 'CLP') === 'CLP')
+      .reduce((acc, x) => acc + Number(x.monto || 0), 0)
+    return formatMoney(tot, 'CLP') + ' (solo CLP)'
+  }
+})
 
-    // Heurística fecha/hora YYYYMMDDHHmm al inicio (ej.: 202509201843…)
-    const d = /^(\d{4})(\d{2})(\d{2})(\d{2})(\d{2})/.exec(digits || '')
-    if (d) {
-      const [, y, mo, da, hh, mi] = d
-      const iso = `${y}-${mo}-${da}`
-      if (!Number.isNaN(Date.parse(iso))) { fecha.value = iso; autofillInfo.value.fechaOk = true }
-      const prefix = notas.value?.trim() ? (notas.value.trim() + '\n\n') : ''
-      notas.value = `${prefix}Hora aproximada del código lineal: ${hh}:${mi}`
-    }
+const countEstado = (estado) => filtradas.value.filter(x => x.estado === estado).length
 
-    // Sugerir al usuario apuntar al QR/PDF417 si quiere monto
-    if (!autofillInfo.value.montoOk) {
-      const prefix = notas.value?.trim() ? (notas.value.trim() + '\n\n') : ''
-      notas.value = `${prefix}Nota: Para obtener monto/folio, escanea el QR/PDF417 del DTE (el código de cajero suele ser solo un ID).`
+const resetFiltros = () => {
+  fDesde.value = ''
+  fHasta.value = ''
+  fEstado.value = 'todos'
+  fMoneda.value = 'todas'
+  fCategoria.value = 'todas'
+}
+
+// ---- Gráficos (Chart.js via CDN loader)
+const catCanvas = ref(null)
+const mesCanvas = ref(null)
+let ChartRef = null
+let catChart = null
+let mesChart = null
+const chartReady = ref(false)
+
+const loadChartJS = () => new Promise((resolve, reject) => {
+  if (ChartRef) return resolve(ChartRef)
+  const s = document.createElement('script')
+  s.src = 'https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js'
+  s.async = true
+  s.onload = () => { ChartRef = window.Chart; resolve(ChartRef) }
+  s.onerror = reject
+  document.head.appendChild(s)
+})
+
+const groupByCategoria = (arr) => {
+  const map = new Map()
+  for (const r of arr) {
+    const key = r.categoria || 'Sin categoría'
+    const moneda = r.moneda || 'CLP'
+    // Solo sumamos la moneda seleccionada o CLP si no hay filtro
+    if (fMoneda.value === 'todas' ? moneda === 'CLP' : moneda === fMoneda.value) {
+      map.set(key, (map.get(key) || 0) + Number(r.monto || 0))
     }
   }
-
-  // Categoría sugerida por texto
-  const catSugerida = suggestCategoryFromText(lastScan.value)
-  if (!categoria.value && catSugerida) { categoria.value = catSugerida; autofillInfo.value.catOk = true }
-
-  // Dejar el texto del código en notas
-  const prefix = notas.value?.trim() ? (notas.value.trim() + '\n\n') : ''
-  notas.value = `${prefix}Código escaneado:\n${lastScan.value}`
-
-  stopScanner()
+  return map
 }
 
-async function stopScanner () {
-  try {
-    if (rafId) cancelAnimationFrame(rafId); rafId = null
-    if (zxingReader) { try { await zxingReader.reset() } catch {error.value = 'Error no se pudo parar el Scanner'} zxingReader = null }
-    if (mediaStream) { mediaStream.getTracks().forEach(t => t.stop()); mediaStream = null }
-    currentTrack = null
-  } finally { scannerActive.value = false }
-}
+const yyyymm = (d) => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`
 
-onBeforeUnmount(() => { stopScanner() })
-
-// ------- Modal "Tomar foto" -------
-const photoActive = ref(false)
-const photoError = ref('')
-const photoVideoEl = ref(null)
-const photoCanvasEl = ref(null)
-let photoStream = null
-const photoReady = ref(false)
-function waitForVideoReadyGeneric (v) { return waitForVideoReady(v) }
-
-async function openPhotoCapture () {
-  photoError.value = ''; photoReady.value = false
-  try {
-    await stopScanner()
-    photoStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 }, height: { ideal: 720 } }, audio: false })
-    photoActive.value = true; await nextTick()
-    const v = photoVideoEl.value
-    v.srcObject = photoStream; v.muted = true; v.setAttribute('muted',''); v.playsInline = true; v.setAttribute('playsinline',''); v.setAttribute('autoplay','')
-    const readyP = waitForVideoReadyGeneric(v); await v.play().catch(()=>{}); await readyP
-    photoReady.value = v.videoWidth > 0 && v.videoHeight > 0
-  } catch (e) { photoError.value = e?.message || 'No se pudo abrir la cámara.'; await closePhotoCapture() }
-}
-async function closePhotoCapture () {
-  try { if (photoStream) { photoStream.getTracks().forEach(t => t.stop()); photoStream = null } }
-  catch {error.value = 'No se pudo cerrar la cámara.'}
-  finally  { await nextTick(); photoActive.value = false }
-  photoReady.value = false; photoActive.value = false
-}
-async function capturePhoto () {
-  try {
-    const v = photoVideoEl.value, c = photoCanvasEl.value
-    if (!v || !c) throw new Error('No hay referencia de la cámara.')
-    if (!photoReady.value || !v.videoWidth || !v.videoHeight) {
-      await waitForVideoReadyGeneric(v)
-      if (!v.videoWidth || !v.videoHeight) throw new Error('La cámara aún no está lista.')
-      photoReady.value = true
+const groupByMes = (arr) => {
+  const map = new Map()
+  for (const r of arr) {
+    const d = r.fecha?.toDate ? r.fecha.toDate() : (r.fecha ? new Date(r.fecha) : (r.creadoEn?.toDate ? r.creadoEn.toDate() : new Date()))
+    const key = yyyymm(d)
+    const moneda = r.moneda || 'CLP'
+    if (fMoneda.value === 'todas' ? moneda === 'CLP' : moneda === fMoneda.value) {
+      map.set(key, (map.get(key) || 0) + Number(r.monto || 0))
     }
-    c.width = v.videoWidth; c.height = v.videoHeight
-    c.getContext('2d').drawImage(v, 0, 0, c.width, c.height)
-    const dataURL = c.toDataURL('image/jpeg', 0.9)
-    const blob = await (await fetch(dataURL)).blob()
-    const file = new File([blob], 'captura.jpg', { type: 'image/jpeg' })
-    fotoPreview.value = await compressImageToDataURL(file, { maxW: 1280, maxH: 1280, quality: 0.8 })
-    await closePhotoCapture()
-  } catch (e) { photoError.value = e?.message || 'No se pudo capturar la foto.' }
+  }
+  // ordenar por mes
+  return new Map([...map.entries()].sort((a,b) => a[0].localeCompare(b[0])))
 }
-onBeforeUnmount(() => { stopScanner(); closePhotoCapture() })
 
-// Guardar
-const guardar = async () => {
-  error.value = ''; ok.value = false; cargando.value = true
+const destroyCharts = () => {
+  if (catChart) { catChart.destroy(); catChart = null }
+  if (mesChart) { mesChart.destroy(); mesChart = null }
+}
+
+const refreshCharts = async () => {
+  await nextTick()
   try {
-    if (!auth.uid) throw new Error('No hay sesión activa.')
-    if (!tipoDoc.value || !numeroDoc.value) throw new Error('Falta el tipo y/o número de documento.')
+    await loadChartJS()
+    chartReady.value = true
+    destroyCharts()
 
-    const docData = {
-      userId: auth.uid,
-      nombre: auth.perfil?.nombre || 'Anónimo',
-      email: auth.perfil?.email || '',
-      empresa: auth.perfil?.empresa || null,
-      monto: Number(monto.value || 0),
-      moneda: moneda.value,
-      categoria: categoria.value,
-      motivo: (motivo.value || '').trim(),
-      notas: (notas.value || '').trim() || null,
-      tipoDocumento: tipoDoc.value,
-      numeroDocumento: numeroDoc.value,
-      folio: numeroDoc.value,
-      ...(tipoDoc.value === 'Boleta'  ? { numeroBoleta:  numeroDoc.value } : {}),
-      ...(tipoDoc.value === 'Factura' ? { numeroFactura: numeroDoc.value } : {}),
-      fecha: fecha.value ? Timestamp.fromDate(new Date(fecha.value)) : null,
-      estado: 'pendiente',
-      creadoEn: serverTimestamp(),
-      fotoPreview: fotoPreview.value || null,
+    const catMap = groupByCategoria(filtradas.value)
+    const catLabels = Array.from(catMap.keys())
+    const catData = Array.from(catMap.values())
+
+    if (catCanvas.value && catLabels.length) {
+      catChart = new ChartRef(catCanvas.value.getContext('2d'), {
+        type: 'doughnut',
+        data: {
+          labels: catLabels,
+          datasets: [{ data: catData }]
+        },
+        options: {
+          plugins: {
+            legend: { position: 'bottom' },
+            tooltip: { callbacks: { label: (ctx) => `${ctx.label}: ${formatMoney(ctx.raw, fMoneda.value === 'todas' ? 'CLP' : fMoneda.value)}` } }
+          }
+        }
+      })
     }
-    await addDoc(collection(db, 'rendiciones'), docData)
-    limpiarFormulario(); ok.value = true
-  } catch (e) { error.value = e.message || 'No se pudo guardar la rendición.' }
-  finally { cargando.value = false }
+
+    const mesMap = groupByMes(filtradas.value)
+    const mesLabels = Array.from(mesMap.keys())
+    const mesData = Array.from(mesMap.values())
+
+    if (mesCanvas.value && mesLabels.length) {
+      mesChart = new ChartRef(mesCanvas.value.getContext('2d'), {
+        type: 'bar',
+        data: {
+          labels: mesLabels,
+          datasets: [{ label: 'Monto', data: mesData }]
+        },
+        options: {
+          scales: { y: { ticks: { callback: (v) => v.toLocaleString('es-CL') } } },
+          plugins: {
+            legend: { display: false },
+            tooltip: { callbacks: { label: (ctx) => formatMoney(ctx.raw, fMoneda.value === 'todas' ? 'CLP' : fMoneda.value) } }
+          }
+        }
+      })
+    }
+  } catch (e) {
+    // Si no carga Chart.js, no rompemos la vista (quedan KPIs y tabla)
+    console.warn('No se pudo cargar Chart.js', e)
+  }
 }
+onMounted(() => {
+  loadChartJS().then(() => {
+    chartReady.value = true
+    refreshCharts()
+  }).catch(() => {
+    chartReady.value = false
+  })
+})
 </script>
-
-<style scoped>
-/* Modal SPA para "Tomar foto" */
-.modal-backdrop-custom { position: fixed; inset: 0; background: rgba(0,0,0,.55); display: grid; place-items: center; z-index: 1080; }
-.modal-card { width: min(900px, 96vw); background: #fff; border-radius: 14px; overflow: hidden; box-shadow: 0 14px 40px rgba(0,0,0,.22); }
-.modal-header, .modal-footer { padding: .75rem 1rem; border-bottom: 1px solid rgba(0,0,0,.06); }
-.modal-footer { border-top: 1px solid rgba(0,0,0,.06); border-bottom: 0; }
-.modal-title { margin: 0; font-size: 1rem; }
-.btn-close { border: 0; background: transparent; }
-</style>
