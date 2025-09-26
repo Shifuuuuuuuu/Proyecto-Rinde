@@ -109,7 +109,7 @@
             </div>
 
             <div class="d-flex gap-2 mt-3">
-              <button class="btn btn-danger" :disabled="cargando">
+              <button class="btn btn-success" :disabled="cargando">
                 <span v-if="!cargando"><i class="bi bi-send me-1"></i> Enviar ticket</span>
                 <span v-else class="spinner-border spinner-border-sm"></span>
               </button>
@@ -217,7 +217,7 @@
                   </div>
                 </div>
                 <div class="modal-footer">
-                  <button class="btn btn-secondary" @click="modalTicket=null">Cerrar</button>
+                  <button class="btn btn-danger" @click="modalTicket=null">Cerrar</button>
                 </div>
               </div>
             </div>

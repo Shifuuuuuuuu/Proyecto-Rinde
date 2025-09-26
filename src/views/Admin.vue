@@ -142,6 +142,9 @@
                     <i class="bi bi-trash"></i>
                   </button>
                   <!-- Estados rápidos -->
+                  <button class="btn btn-secondary btn-sm" @click="cambiarEstado(r, 'borrador')" title="Borrador">
+                    <i class="bi bi-file-earmark-font"></i>
+                  </button>
                   <button class="btn btn-success btn-sm" @click="cambiarEstado(r, 'aprobada')" title="Aprobar">
                     <i class="bi bi-check2-circle"></i>
                   </button>

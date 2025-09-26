@@ -8,7 +8,7 @@
         active-class=""
         exact-active-class=""
       >
-        <i class="bi bi-receipt-cutoff me-2"></i> Xtreme Service
+        <i></i> Xtreme Service
       </RouterLink>
 
       <!-- Toggler móvil -->
@@ -30,10 +30,10 @@
         <ul class="navbar-nav me-auto mb-2 mb-lg-0" v-if="auth.autenticado">
           <!-- ADMIN: bloque admin + bloque rendidor -->
           <template v-if="isAdmin">
-            <li class="nav-item" v-for="item in itemsAdminPanel" :key="`admin-${item.to}`">
+            <li class="nav-item" v-for="item in itemsAdminPanel" :key="`admin-${keyOf(item)}`">
               <RouterLink
                 class="nav-link"
-                :class="isActive(item.to)"
+                :class="isActive(item)"
                 :to="item.to"
                 active-class=""
                 exact-active-class=""
@@ -42,10 +42,10 @@
               </RouterLink>
             </li>
 
-            <li class="nav-item" v-for="item in itemsRendidor" :key="`rend-${item.to}`">
+            <li class="nav-item" v-for="item in itemsRendidor" :key="`rend-${keyOf(item)}`">
               <RouterLink
                 class="nav-link"
-                :class="isActive(item.to)"
+                :class="isActive(item)"
                 :to="item.to"
                 active-class=""
                 exact-active-class=""
@@ -57,10 +57,10 @@
 
           <!-- APROBADOR: rendidor + aprobaciones -->
           <template v-else-if="isAprobador">
-            <li class="nav-item" v-for="item in itemsAprobador" :key="`apr-${item.to}`">
+            <li class="nav-item" v-for="item in itemsAprobador" :key="`apr-${keyOf(item)}`">
               <RouterLink
                 class="nav-link"
-                :class="isActive(item.to)"
+                :class="isActive(item)"
                 :to="item.to"
                 active-class=""
                 exact-active-class=""
@@ -72,10 +72,10 @@
 
           <!-- RENDIDOR: solo rendidor -->
           <template v-else>
-            <li class="nav-item" v-for="item in itemsRendidor" :key="`rend-${item.to}`">
+            <li class="nav-item" v-for="item in itemsRendidor" :key="`rend-${keyOf(item)}`">
               <RouterLink
                 class="nav-link"
-                :class="isActive(item.to)"
+                :class="isActive(item)"
                 :to="item.to"
                 active-class=""
                 exact-active-class=""
@@ -101,7 +101,7 @@
             </a>
             <ul class="dropdown-menu dropdown-menu-end shadow-sm">
               <li>
-                <RouterLink class="dropdown-item" to="/perfil">
+                <RouterLink class="dropdown-item" :to="{ name: 'perfil' }">
                   <i class="bi bi-person me-2"></i> Perfil
                 </RouterLink>
               </li>
@@ -122,8 +122,8 @@
 
         <!-- Invitados -->
         <ul class="navbar-nav ms-auto" v-else>
-          <li class="nav-item"><RouterLink class="nav-link" to="/login">Iniciar sesión</RouterLink></li>
-          <li class="nav-item"><RouterLink class="nav-link" to="/registro">Crear cuenta</RouterLink></li>
+          <li class="nav-item"><RouterLink class="nav-link" :to="{ name: 'login' }">Iniciar sesión</RouterLink></li>
+          <li class="nav-item"><RouterLink class="nav-link" :to="{ name: 'registro' }">Crear cuenta</RouterLink></li>
         </ul>
       </div>
     </div>
@@ -144,29 +144,48 @@ const rol = computed(() => auth.perfil?.rol || 'usuario')
 const isAdmin = computed(() => rol.value === 'admin')
 const isAprobador = computed(() => rol.value === 'aprobador')
 
-// Logo: admin -> /admin, aprobador -> /aprobador, resto -> /
-const brandTo = computed(() => (isAdmin.value ? '/admin' : isAprobador.value ? '/aprobador' : '/'))
+// Logo: admin -> admin, aprobador -> aprobadorInformes, resto -> home
+const brandTo = computed(() =>
+  isAdmin.value
+    ? { name: 'admin' }
+    : isAprobador.value
+      ? { name: 'aprobadorInformes' }
+      : { name: 'home' }
+)
 
-// Menús
+// Menús (usuario/rendidor)
 const itemsRendidor = [
-  { label: 'Inicio',          to: '/',                icon: 'bi bi-house-door' },
-  { label: 'Mis Rendiciones', to: '/mis-rendiciones', icon: 'bi bi-journal-text' },
-  { label: 'Reportes',        to: '/reportes',        icon: 'bi bi-bar-chart-line' },
-  { label: 'Soporte',         to: '/soporte',         icon: 'bi bi-life-preserver' },
+  { label: 'Inicio',          to: { name: 'home' },              icon: 'bi bi-house-door' },
+  { label: 'Rendiciones',     to: { name: 'rendiciones' },       icon: 'bi bi-journal-text' },
+  { label: 'Informes',        to: { name: 'informes' },          icon: 'bi bi-file-text' },
+  { label: 'Reportes',        to: { name: 'reportes' },          icon: 'bi bi-bar-chart-line' },
+  { label: 'Soporte',         to: { name: 'soporte' },           icon: 'bi bi-life-preserver' },
+
 ]
+
+// Menú específico del aprobador
 const itemsAprobador = [
   ...itemsRendidor,
-  { label: 'Aprobaciones', to: '/aprobador', icon: 'bi bi-check2-square' },
-]
-const itemsAdminPanel = [
-  { label: 'Admin',        to: '/admin',           icon: 'bi bi-speedometer2' },
-  { label: 'Usuarios',     to: '/admin/usuarios',  icon: 'bi bi-people' },
-  { label: 'Soporte',      to: '/admin/soporte',   icon: 'bi bi-life-preserver' },
-  { label: 'Aprobaciones', to: '/aprobador',       icon: 'bi bi-check2-square' },
+  { label: 'Informes', to: { name: 'aprobadorInformes' },     icon: 'bi bi-file-earmark-check' },
 ]
 
-// Activo: "/" solo exacto, el resto por prefijo también
-const isActive = (path) => {
+// Menú del admin (panel admin + accesos a aprobaciones e informes del aprobador)
+const itemsAdminPanel = [
+  { label: 'Admin',                to: { name: 'admin' },                 icon: 'bi bi-speedometer2' },
+  { label: 'Usuarios',             to: { name: 'AdminUsuarios' },         icon: 'bi bi-people' },
+  { label: 'Soporte (admin)',      to: { name: 'admin.soporte' },         icon: 'bi bi-life-preserver' },
+  { label: 'Informes',             to: { name: 'aprobadorInformes' },     icon: 'bi bi-file-earmark-check' },
+]
+
+// Helpers para active
+const keyOf = (item) => typeof item.to === 'string' ? item.to : (item.to.name || JSON.stringify(item.to))
+const isActive = (item) => {
+  // Si es por name:
+  if (typeof item.to !== 'string' && item.to?.name) {
+    return route.name === item.to.name ? 'active fw-semibold' : ''
+  }
+  // Fallback por path (no usado aquí, pero por si acaso)
+  const path = typeof item.to === 'string' ? item.to : router.resolve(item.to).path
   if (path === '/') return route.path === '/' ? 'active fw-semibold' : ''
   return (route.path === path || route.path.startsWith(path + '/')) ? 'active fw-semibold' : ''
 }

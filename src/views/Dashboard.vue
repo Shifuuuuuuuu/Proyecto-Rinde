@@ -6,18 +6,21 @@
       <div>
         <h1 class="h4 mb-1">¡Hola{{ saludoNombre }}!</h1>
         <p class="text-muted mb-0">
-          Crea nuevas rendiciones, revisa tus estados y controla tus últimos movimientos.
+          Crea y gestiona tus rendiciones e informes desde un solo lugar.
         </p>
       </div>
       <div class="d-flex gap-2">
-        <RouterLink class="btn btn-danger" to="/crear">
+        <RouterLink class="btn btn-danger" :to="{ name:'crear' }">
           <i class="bi bi-plus-lg me-1"></i> Nueva rendición
+        </RouterLink>
+        <RouterLink class="btn btn-outline-dark" :to="{ name:'informes' }">
+          <i class="bi bi-file-earmark-text me-1"></i> Ver informes
         </RouterLink>
       </div>
     </div>
   </div>
 
-  <!-- KPIs del usuario -->
+  <!-- KPIs: Rendiciones -->
   <div class="row g-3">
     <div class="col-12 col-md-6 col-xl-3">
       <div class="card shadow-sm h-100">
@@ -25,7 +28,7 @@
           <div class="d-flex justify-content-between align-items-start">
             <div>
               <div class="text-muted small">Total rendiciones</div>
-              <div class="fs-4 fw-semibold">{{ kpis.total }}</div>
+              <div class="fs-4 fw-semibold">{{ kpisR.total }}</div>
             </div>
             <i class="bi bi-receipt fs-3 text-secondary"></i>
           </div>
@@ -42,12 +45,12 @@
           <div class="d-flex justify-content-between align-items-start">
             <div>
               <div class="text-muted small">Pendientes</div>
-              <div class="fs-4 fw-semibold">{{ kpis.pendientes }}</div>
+              <div class="fs-4 fw-semibold">{{ kpisR.pendientes }}</div>
             </div>
             <span class="badge text-bg-warning align-self-start">pendiente</span>
           </div>
           <div class="progress mt-3" style="height:6px;">
-            <div class="progress-bar bg-warning" :style="{ width: porcentaje(kpis.pendientes) + '%' }"></div>
+            <div class="progress-bar bg-warning" :style="{ width: porcentaje(kpisR.pendientes, kpisR.total) + '%' }"></div>
           </div>
         </div>
       </div>
@@ -59,12 +62,12 @@
           <div class="d-flex justify-content-between align-items-start">
             <div>
               <div class="text-muted small">Aprobadas</div>
-              <div class="fs-4 fw-semibold">{{ kpis.aprobadas }}</div>
+              <div class="fs-4 fw-semibold">{{ kpisR.aprobadas }}</div>
             </div>
             <span class="badge text-bg-success align-self-start">aprobada</span>
           </div>
           <div class="progress mt-3" style="height:6px;">
-            <div class="progress-bar bg-success" :style="{ width: porcentaje(kpis.aprobadas) + '%' }"></div>
+            <div class="progress-bar bg-success" :style="{ width: porcentaje(kpisR.aprobadas, kpisR.total) + '%' }"></div>
           </div>
         </div>
       </div>
@@ -76,12 +79,12 @@
           <div class="d-flex justify-content-between align-items-start">
             <div>
               <div class="text-muted small">Rechazadas</div>
-              <div class="fs-4 fw-semibold">{{ kpis.rechazadas }}</div>
+              <div class="fs-4 fw-semibold">{{ kpisR.rechazadas }}</div>
             </div>
             <span class="badge text-bg-danger align-self-start">rechazada</span>
           </div>
           <div class="progress mt-3" style="height:6px;">
-            <div class="progress-bar bg-danger" :style="{ width: porcentaje(kpis.rechazadas) + '%' }"></div>
+            <div class="progress-bar bg-danger" :style="{ width: porcentaje(kpisR.rechazadas, kpisR.total) + '%' }"></div>
           </div>
         </div>
       </div>
@@ -95,7 +98,7 @@
         <div class="card-body d-flex align-items-center justify-content-between">
           <div>
             <div class="text-muted small">Gasto aprobado (últimos 30 días)</div>
-            <div class="fs-3 fw-semibold">{{ formatMoney(kpis.montoAprobadoMes, 'CLP') }}</div>
+            <div class="fs-3 fw-semibold">{{ formatMoney(kpisR.montoAprobadoMes, 'CLP') }}</div>
           </div>
           <i class="bi bi-graph-up-arrow fs-2 text-success"></i>
         </div>
@@ -108,11 +111,11 @@
           <div>
             <div class="text-muted small">Última rendición</div>
             <div class="fw-semibold">
-              <span v-if="ultimos[0]">{{ formatFecha(ultimos[0].creadoEn || ultimos[0].fecha) }}</span>
+              <span v-if="ultimosR[0]">{{ formatFecha(ultimosR[0].creadoEn || ultimosR[0].fecha) }}</span>
               <span v-else>—</span>
             </div>
           </div>
-          <RouterLink class="btn btn-outline-secondary" to="/mis-rendiciones">
+          <RouterLink class="btn btn-outline-secondary" :to="{ name:'rendiciones' }">
             Ver historial
           </RouterLink>
         </div>
@@ -120,26 +123,98 @@
     </div>
   </div>
 
-  <!-- Últimas rendiciones (con imagen si hay) -->
+  <!-- KPIs: Informes -->
   <div class="row g-3 mt-1">
+    <div class="col-12 col-md-6 col-xl-3">
+      <div class="card shadow-sm h-100">
+        <div class="card-body">
+          <div class="d-flex justify-content-between align-items-start">
+            <div>
+              <div class="text-muted small">Total informes</div>
+              <div class="fs-4 fw-semibold">{{ kpisI.total }}</div>
+            </div>
+            <i class="bi bi-files fs-3 text-secondary"></i>
+          </div>
+          <div class="progress mt-3" style="height:6px;">
+            <div class="progress-bar bg-secondary" style="width:100%"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-12 col-md-6 col-xl-3">
+      <div class="card shadow-sm h-100">
+        <div class="card-body">
+          <div class="d-flex justify-content-between align-items-start">
+            <div>
+              <div class="text-muted small">Pendientes</div>
+              <div class="fs-4 fw-semibold">{{ kpisI.pendiente }}</div>
+            </div>
+            <span class="badge text-bg-warning align-self-start">pendiente</span>
+          </div>
+          <div class="progress mt-3" style="height:6px;">
+            <div class="progress-bar bg-warning" :style="{ width: porcentaje(kpisI.pendiente, kpisI.total) + '%' }"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-12 col-md-6 col-xl-3">
+      <div class="card shadow-sm h-100">
+        <div class="card-body">
+          <div class="d-flex justify-content-between align-items-start">
+            <div>
+              <div class="text-muted small">Aprobados</div>
+              <div class="fs-4 fw-semibold">{{ kpisI.aprobado }}</div>
+            </div>
+            <span class="badge text-bg-success align-self-start">aprobado</span>
+          </div>
+          <div class="progress mt-3" style="height:6px;">
+            <div class="progress-bar bg-success" :style="{ width: porcentaje(kpisI.aprobado, kpisI.total) + '%' }"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-12 col-md-6 col-xl-3">
+      <div class="card shadow-sm h-100">
+        <div class="card-body">
+          <div class="d-flex justify-content-between align-items-start">
+            <div>
+              <div class="text-muted small">Rechazados</div>
+              <div class="fs-4 fw-semibold">{{ kpisI.rechazado }}</div>
+            </div>
+            <span class="badge text-bg-danger align-self-start">rechazado</span>
+          </div>
+          <div class="progress mt-3" style="height:6px;">
+            <div class="progress-bar bg-danger" :style="{ width: porcentaje(kpisI.rechazado, kpisI.total) + '%' }"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Últimos movimientos + Últimos informes -->
+  <div class="row g-3 mt-1">
+    <!-- Últimas rendiciones -->
     <div class="col-12 col-xl-8">
       <div class="card shadow-sm h-100">
         <div class="card-body">
           <div class="d-flex justify-content-between align-items-center mb-2">
             <h5 class="card-title mb-0">Últimos movimientos</h5>
-            <RouterLink to="/mis-rendiciones" class="btn btn-sm btn-outline-secondary">Ver todos</RouterLink>
+            <RouterLink :to="{ name:'rendiciones' }" class="btn btn-sm btn-outline-secondary">Ver todos</RouterLink>
           </div>
 
           <div v-if="cargando" class="text-center py-4">
             <div class="spinner-border"></div>
           </div>
 
-          <div v-else-if="!ultimos.length" class="text-center text-muted py-4">
+          <div v-else-if="!ultimosR.length" class="text-center text-muted py-4">
             Aún no registras rendiciones.
           </div>
 
           <ul v-else class="list-group list-group-flush">
-            <li class="list-group-item" v-for="r in ultimos" :key="r.id">
+            <li class="list-group-item" v-for="r in ultimosR" :key="r.id">
               <div class="d-flex align-items-center gap-3">
                 <div style="width:64px;height:64px" class="flex-shrink-0 d-flex align-items-center justify-content-center bg-light rounded border overflow-hidden">
                   <img v-if="r.fotoPreview" :src="r.fotoPreview" alt="Comprobante" class="img-fluid" style="max-height:64px;max-width:64px;">
@@ -150,7 +225,7 @@
                     <div class="fw-semibold">
                       {{ r.categoria }} — {{ formatMoney(r.monto, r.moneda || 'CLP') }}
                     </div>
-                    <span :class="['badge', badgeClass(r.estado)]">{{ r.estado }}</span>
+                    <span :class="['badge', badgeRendicion(r.estado)]">{{ r.estado }}</span>
                   </div>
                   <div class="small text-muted">
                     {{ formatFecha(r.fecha) }} · {{ r.motivo }}
@@ -167,34 +242,64 @@
       </div>
     </div>
 
-    <!-- Ayuda / tips -->
+    <!-- Últimos informes -->
     <div class="col-12 col-xl-4">
       <div class="card shadow-sm h-100">
-        <div class="card-body">
-          <h5 class="card-title">Sugerencias</h5>
-          <ul class="list-unstyled mb-0">
-            <li class="d-flex gap-2 mb-3">
-              <i class="bi bi-camera text-secondary"></i>
-              <div>
-                <div class="fw-semibold">Adjunta foto clara</div>
-                <div class="small text-muted">Asegúrate que se lea el monto, fecha e ítem. Usa modo “documento”.</div>
-              </div>
-            </li>
-            <li class="d-flex gap-2 mb-3">
-              <i class="bi bi-calendar2-week text-secondary"></i>
-              <div>
-                <div class="fw-semibold">Fecha correcta</div>
-                <div class="small text-muted">La fecha debe coincidir con el comprobante para evitar rechazos.</div>
-              </div>
-            </li>
-            <li class="d-flex gap-2 mb-3">
-              <i class="bi bi-cash-coin text-secondary"></i>
-              <div>
-                <div class="fw-semibold">Moneda</div>
-                <div class="small text-muted">Si no es CLP, selecciona USD/EUR/UF al crear la rendición.</div>
+        <div class="card-body d-flex flex-column">
+          <div class="d-flex justify-content-between align-items-center mb-2">
+            <h5 class="card-title mb-0">Últimos informes</h5>
+            <RouterLink :to="{ name:'informes' }" class="btn btn-sm btn-outline-secondary">Ver todos</RouterLink>
+          </div>
+
+          <div v-if="cargandoInformes" class="text-center py-4">
+            <div class="spinner-border"></div>
+          </div>
+
+          <div v-else-if="!ultimosI.length" class="text-center text-muted py-4">
+            Aún no has creado informes.
+          </div>
+
+          <ul v-else class="list-group list-group-flush">
+            <li class="list-group-item" v-for="inf in ultimosI" :key="inf.id">
+              <div class="d-flex align-items-start justify-content-between gap-2">
+                <div class="me-2">
+                  <div class="fw-semibold text-truncate" :title="inf.titulo || '(Sin título)'">
+                    {{ inf.titulo || '(Sin título)' }}
+                  </div>
+                  <div class="small text-muted">
+                    {{ formatFecha(inf.creadoEn) }} · {{ inf.rendicionIds?.length || 0 }} rend.
+                  </div>
+                  <div class="small mt-1" v-if="inf.totalesPorMoneda">
+                    <span
+                      v-for="(monto, code) in inf.totalesPorMoneda"
+                      :key="code"
+                      class="me-2 text-muted"
+                    >
+                      {{ code }}: <strong>{{ formatMoney(monto, code) }}</strong>
+                    </span>
+                  </div>
+                </div>
+                <div class="text-end">
+                  <span :class="['badge', badgeInforme(inf.estado)]">{{ inf.estado }}</span>
+                  <div class="mt-2">
+                    <RouterLink
+                      class="btn btn-sm btn-outline-secondary"
+                      :to="{ name:'informeDetalle', params:{ id: inf.id } }"
+                    >
+                      Ver
+                    </RouterLink>
+                  </div>
+                </div>
               </div>
             </li>
           </ul>
+
+          <div class="mt-auto pt-3 d-grid">
+            <RouterLink :to="{ name:'rendiciones' }" class="btn btn-dark">
+              <i class="bi bi-file-earmark-plus me-1"></i>
+              Crear informe (seleccionando rendiciones)
+            </RouterLink>
+          </div>
         </div>
       </div>
 
@@ -219,11 +324,14 @@ import { collection, query, where, orderBy, onSnapshot, limit } from 'firebase/f
 
 const auth = useAuthStore()
 
-// Datos UI
+// ----- Datos UI
 const cargando = ref(true)
-const ultimos = ref([])
+const cargandoInformes = ref(true)
+const ultimosR = ref([])
+const ultimosI = ref([])
 
-const kpis = ref({
+// KPIs Rendiciones
+const kpisR = ref({
   total: 0,
   pendientes: 0,
   aprobadas: 0,
@@ -231,10 +339,19 @@ const kpis = ref({
   montoAprobadoMes: 0,
 })
 
+// KPIs Informes
+const kpisI = ref({
+  total: 0,
+  pendiente: 0,
+  aprobado: 0,
+  parcial: 0,
+  rechazado: 0
+})
+
 // Nombre/empresa visibles
 const perfilNombre = computed(() => auth.perfil?.nombre || auth.user?.email || 'Usuario')
 const perfilEmpresa = computed(() => auth.perfil?.empresa || '')
-const saludoNombre = computed(() => perfilNombre.value ? `, ${perfilNombre.value}` : '')
+const saludoNombre = computed(() => (perfilNombre.value ? `, ${perfilNombre.value}` : ''))
 
 // Helpers
 const formatMoney = (value, code) => {
@@ -245,37 +362,40 @@ const formatMoney = (value, code) => {
   if (code === 'UF')  return `UF ${new Intl.NumberFormat('es-CL', { minimumFractionDigits:2, maximumFractionDigits:2 }).format(n)}`
   return n
 }
+const toDate = (ts) => (ts?.toDate ? ts.toDate() : new Date(ts))
 const formatFecha = (ts) => {
-  try { const d = ts?.toDate ? ts.toDate() : new Date(ts); return new Intl.DateTimeFormat('es-CL').format(d) }
+  try { return new Intl.DateTimeFormat('es-CL').format(toDate(ts)) }
   catch { return '-' }
 }
-const badgeClass = (estado) =>
-  ({ pendiente:'badge text-bg-warning', aprobada:'badge text-bg-success', rechazada:'badge text-bg-danger' }[estado] || 'badge text-bg-secondary')
+const badgeRendicion = (estado) =>
+  ({ pendiente:'badge text-bg-warning', aprobada:'badge text-bg-success', rechazada:'badge text-bg-danger', borrador:'badge text-bg-secondary' }[estado] || 'badge text-bg-secondary')
+const badgeInforme = (estado) =>
+  ({ pendiente:'badge text-bg-warning', aprobado:'badge text-bg-success', parcial:'badge text-bg-info', rechazado:'badge text-bg-danger' }[estado] || 'badge text-bg-secondary')
 
-const porcentaje = (num) => {
-  const total = kpis.value.total || 1
-  return Math.round((num / total) * 100)
+const porcentaje = (num, total) => {
+  const t = total || 1
+  return Math.round((Number(num || 0) / t) * 100)
 }
 
 onMounted(() => {
-  // Últimos 5 del usuario
-  const qUltimos = query(
+  // ===== Rendiciones - Últimos 5
+  const qUltimosR = query(
     collection(db, 'rendiciones'),
     where('userId', '==', auth.uid),
     orderBy('creadoEn', 'desc'),
     limit(5)
   )
-  onSnapshot(qUltimos, (snap) => {
-    ultimos.value = snap.docs.map(d => ({ id: d.id, ...d.data() }))
+  onSnapshot(qUltimosR, (snap) => {
+    ultimosR.value = snap.docs.map(d => ({ id: d.id, ...d.data() }))
   })
 
-  // Todas del usuario para KPIs (client-side)
-  const qAllUser = query(
+  // ===== Rendiciones - KPIs
+  const qAllR = query(
     collection(db, 'rendiciones'),
     where('userId', '==', auth.uid),
     orderBy('creadoEn', 'desc')
   )
-  onSnapshot(qAllUser, (snap) => {
+  onSnapshot(qAllR, (snap) => {
     const docs = snap.docs.map(d => d.data())
     const now = new Date()
     const hace30 = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 30)
@@ -286,11 +406,49 @@ onMounted(() => {
       aprobadas: docs.filter(x => x.estado === 'aprobada').length,
       rechazadas: docs.filter(x => x.estado === 'rechazada').length,
       montoAprobadoMes: docs
-        .filter(x => x.estado === 'aprobada' && (x.fecha?.toDate ? x.fecha.toDate() : new Date(x.fecha)) >= hace30)
+        .filter(x => x.estado === 'aprobada' && toDate(x.fecha) >= hace30)
         .reduce((acc, x) => acc + Number(x.monto || 0), 0),
     }
-    kpis.value = k
+    kpisR.value = k
     cargando.value = false
+  })
+
+  // ===== Informes - Últimos 5
+  const qUltimosI = query(
+    collection(db, 'informes'),
+    where('userId', '==', auth.uid),
+    orderBy('creadoEn', 'desc'),
+    limit(5)
+  )
+  onSnapshot(qUltimosI, (snap) => {
+    ultimosI.value = snap.docs.map(d => ({ id: d.id, ...d.data() }))
+    cargandoInformes.value = false
+  })
+
+  // ===== Informes - KPIs
+  const qAllI = query(
+    collection(db, 'informes'),
+    where('userId', '==', auth.uid),
+    orderBy('creadoEn', 'desc')
+  )
+  onSnapshot(qAllI, (snap) => {
+    const docs = snap.docs.map(d => d.data())
+    const k = {
+      total: docs.length,
+      pendiente: docs.filter(x => x.estado === 'pendiente').length,
+      aprobado: docs.filter(x => x.estado === 'aprobado').length,
+      parcial: docs.filter(x => x.estado === 'parcial').length,
+      rechazado: docs.filter(x => x.estado === 'rechazado').length
+    }
+    kpisI.value = k
   })
 })
 </script>
+
+<style scoped>
+/* Pequeños detalles visuales para hacerlo más pulido */
+.card-title { font-weight: 600; }
+.list-group-item { border-left: 0; border-right: 0; }
+.list-group-item:first-child { border-top: 0; }
+.progress { background: rgba(0,0,0,.06); }
+</style>

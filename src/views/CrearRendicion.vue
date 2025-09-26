@@ -152,7 +152,6 @@
                 <div class="position-relative rounded overflow-hidden" style="background:#000">
                   <video ref="videoEl" autoplay playsinline muted class="w-100" style="max-height:280px; object-fit:cover"></video>
                   <canvas ref="canvasEl" class="d-none"></canvas>
-                  <!-- marco -->
                   <div
                     class="position-absolute top-50 start-50 translate-middle border border-2 border-danger rounded"
                     style="width:70%; height:55%; pointer-events:none;"
@@ -199,7 +198,6 @@
                 <div class="small text-muted">Vista previa del monto</div>
                 <div class="fw-semibold">{{ previewMonto }}</div>
               </div>
-              <span class="badge text-bg-warning">pendiente</span>
             </div>
           </div>
 
@@ -217,8 +215,12 @@
 
         <!-- Acciones -->
         <div class="d-flex gap-2 mt-2">
-          <button class="btn btn-danger" :disabled="cargando">
-            <span v-if="!cargando"><i class="bi bi-check2-circle me-1"></i> Guardar</span>
+          <button class="btn btn-primary" :disabled="cargando" @click.prevent="guardar">
+            <span v-if="!cargando"><i class="bi bi-check2-circle me-1"></i> Guardar (borrador)</span>
+            <span v-else class="spinner-border spinner-border-sm"></span>
+          </button>
+          <button class="btn btn-success" type="button" :disabled="cargando" @click="enviar">
+            <span v-if="!cargando"><i class="bi bi-send-check me-1"></i> Guardar y enviar</span>
             <span v-else class="spinner-border spinner-border-sm"></span>
           </button>
           <button class="btn btn-outline-secondary" type="button" @click="limpiarFormulario" :disabled="cargando">
@@ -226,9 +228,8 @@
           </button>
         </div>
 
-        <!-- Mensajes -->
+        <!-- Mensajes inline -->
         <p v-if="error" class="text-danger small mt-3">{{ error }}</p>
-        <p v-if="ok" class="text-success small mt-3">¡Rendición creada!</p>
       </form>
     </div>
   </div>
@@ -276,24 +277,74 @@
       </div>
     </div>
   </div>
+
+  <!-- Toast / Snackbar -->
+  <Teleport to="body">
+    <Transition name="snackbar">
+      <div v-if="toast.show" class="snackbar shadow">
+        <i class="bi me-2" :class="toast.icon"></i>
+        <span>{{ toast.text }}</span>
+        <button class="btn btn-sm btn-link text-white ms-2" @click="toast.show = false">Cerrar</button>
+      </div>
+    </Transition>
+  </Teleport>
 </template>
 
 <script setup>
-import { ref, computed, onBeforeUnmount, nextTick } from 'vue'
-import { RouterLink, useRouter } from 'vue-router'
+import { ref, computed, onBeforeUnmount, nextTick, onMounted  } from 'vue'
+import { RouterLink, useRouter, useRoute } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { db } from '@/firebase'
-import { addDoc, collection, serverTimestamp, Timestamp } from 'firebase/firestore'
+import { addDoc, collection, serverTimestamp, Timestamp, doc, getDoc } from 'firebase/firestore'
 import { BrowserMultiFormatReader } from '@zxing/browser'
 import { BarcodeFormat, DecodeHintType } from '@zxing/library'
 
-
-
-
+const route = useRoute()
 const auth = useAuthStore()
 const router = useRouter()
 
-// Categorías solicitadas
+/* ===== Toast ===== */
+const toast = ref({ show: false, text: '', icon: 'bi-check-circle' })
+let toastTimer
+function showToast (text, icon = 'bi-check-circle') {
+  toast.value = { show: true, text, icon }
+  clearTimeout(toastTimer)
+  toastTimer = setTimeout(() => (toast.value.show = false), 2600)
+}
+
+/* Utils de prefilling por copia */
+function toInputDate(ts) {
+  try {
+    const d = ts?.toDate ? ts.toDate() : new Date(ts)
+    const y = d.getFullYear()
+    const m = String(d.getMonth() + 1).padStart(2,'0')
+    const da = String(d.getDate()).padStart(2,'0')
+    return `${y}-${m}-${da}`
+  } catch { return '' }
+}
+function prefillFromDocData(data) {
+  monto.value      = Number(data.monto || 0)
+  moneda.value     = data.moneda || 'CLP'
+  categoria.value  = data.categoria || ''
+  motivo.value     = data.motivo || ''
+  notas.value      = data.notas || ''
+  fecha.value      = toInputDate(data.fecha)
+  tipoDoc.value    = data.tipoDocumento || ''
+  numeroDoc.value  = data.numeroDocumento || data.folio || ''
+  fotoPreview.value = null
+  syncStep()
+}
+onMounted(async () => {
+  const copyFrom = route.query.copyFrom
+  if (!copyFrom) return
+  try {
+    const snap = await getDoc(doc(db, 'rendiciones', String(copyFrom)))
+    if (snap.exists()) { prefillFromDocData(snap.data()); error.value = '' }
+    else { error.value = 'No se encontró la rendición a copiar.' }
+  } catch (e) { console.error(e); error.value = 'No fue posible copiar los datos.' }
+})
+
+/* Categorías */
 const CATEGORIAS = [
   'Gastos de estacionamiento',
   'Gastos notariales y legales',
@@ -306,33 +357,29 @@ const CATEGORIAS = [
   'Gastos de movilización - pasajes con boletas'
 ]
 
-// Campos del formulario
+/* Form state */
 const monto = ref(null)
 const moneda = ref('CLP')
 const categoria = ref('')
 const motivo = ref('')
 const notas = ref('')
 const fecha = ref('')
-
-// Documento
 const tipoDoc = ref('')
 const numeroDoc = ref('')
 
-// Foto (miniatura base64 para Firestore)
+/* Foto */
 const fileInput = ref(null)
 const fotoPreview = ref(null)
 
-// Estado UI
+/* UI */
 const cargando = ref(false)
 const error = ref('')
-const ok = ref(false)
 
-// --- UI helpers ---
+/* Helpers */
 const simboloMoneda = computed(() => ({ CLP: '$', USD: '$', EUR: '€', UF: 'UF' }[moneda.value] || '$'))
-const stepMoneda = ref(100) // CLP por defecto
+const stepMoneda = ref(100)
 const syncStep = () => { stepMoneda.value = (moneda.value === 'CLP') ? 100 : 0.01 }
 syncStep()
-
 const formatMoney = (value, code) => {
   const n = Number(value || 0)
   if (code === 'CLP') return new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP', maximumFractionDigits: 0 }).format(n)
@@ -342,7 +389,6 @@ const formatMoney = (value, code) => {
   return n
 }
 const previewMonto = computed(() => formatMoney(monto.value, moneda.value))
-
 const normalizarMonto = () => {
   if (monto.value == null || monto.value === '') return
   let n = Number(monto.value)
@@ -351,24 +397,11 @@ const normalizarMonto = () => {
 }
 
 const volver = () => router.back()
-
-const limpiarFoto = () => {
-  fotoPreview.value = null
-  if (fileInput.value) fileInput.value.value = ''
-}
+const limpiarFoto = () => { fotoPreview.value = null; if (fileInput.value) fileInput.value.value = '' }
 const limpiarFormulario = () => {
-  monto.value = null
-  moneda.value = 'CLP'
-  categoria.value = ''
-  motivo.value = ''
-  notas.value = ''
-  fecha.value = ''
-  tipoDoc.value = ''
-  numeroDoc.value = ''
-  limpiarFoto()
-  ok.value = false
-  error.value = ''
-  syncStep()
+  monto.value = null; moneda.value = 'CLP'; categoria.value = ''; motivo.value = ''
+  notas.value = ''; fecha.value = ''; tipoDoc.value = ''; numeroDoc.value = ''
+  limpiarFoto(); error.value = ''; syncStep()
 }
 const onFile = async (e) => {
   const file = e.target.files?.[0]
@@ -410,8 +443,7 @@ const compressImageToDataURL = (file, { maxW = 1280, maxH = 1280, quality = 0.8 
     reader.readAsDataURL(file)
   })
 
-// ------- ESCÁNER (robusto Opera / Chrome / Edge / Firefox) -------
-// Refs & estado
+/* ---------- ESCÁNER ---------- */
 const videoEl = ref(null)
 const canvasEl = ref(null)
 const scannerActive = ref(false)
@@ -426,13 +458,9 @@ let barcodeDetector = null
 let zxingReader = null
 let currentTrack = null
 let currentDeviceId = null
-
-// Mejoras: torch y zoom
 const torchOn = ref(false)
 const zoomLevel = ref(1)
 const maxZoom = ref(1)
-
-// quitamos pagoOk, mantenemos flags de auto-llenado
 const autofillInfo = ref({ montoOk: false, fechaOk: false, catOk: false })
 
 function waitForVideoReady (v) {
@@ -448,12 +476,10 @@ function waitForVideoReady (v) {
     v.addEventListener('canplay', onReady, { once: true })
   })
 }
-
 async function listVideoInputs() {
   const devices = await navigator.mediaDevices.enumerateDevices()
   return devices.filter(d => d.kind === 'videoinput')
 }
-
 function getZXingHints() {
   const hints = new Map()
   hints.set(DecodeHintType.POSSIBLE_FORMATS, [
@@ -468,28 +494,21 @@ function getZXingHints() {
     BarcodeFormat.CODABAR,
     BarcodeFormat.DATA_MATRIX,
     BarcodeFormat.AZTEC,
-    BarcodeFormat.PDF_417, // <- importante para boletas/facturas CL
+    BarcodeFormat.PDF_417,
   ])
   hints.set(DecodeHintType.TRY_HARDER, true)
   return hints
 }
-
-
 async function startScanner () {
   scanError.value = ''
   lastScan.value = ''
   autofillInfo.value = { montoOk: false, fechaOk: false, catOk: false }
   scannerInfo.value = ''
-
   try {
-    // Cerrar el modal de foto si estaba abierto
     await closePhotoCapture()
-
-    // 1) Habilitar UI para que el <video> exista y esperar al render
     scannerActive.value = true
     await nextTick()
 
-    // 2) Preparar detector nativo si sirve
     const wantFormats = [
       'qr_code','ean_13','ean_8','code_128','code_39','upc_a','upc_e','itf','codabar','data_matrix','aztec','pdf417'
     ]
@@ -508,10 +527,9 @@ async function startScanner () {
       }
     }
 
-    // 3) Abrir cámara (trasera por defecto) con enfoque/exposición continuos
     const constraints = {
       video: {
-        facingMode: currentFacing, // 'environment' | 'user'
+        facingMode: currentFacing,
         width: { ideal: 1280 },
         height: { ideal: 720 },
         advanced: [{ focusMode: 'continuous' }, { exposureMode: 'continuous' }],
@@ -519,8 +537,6 @@ async function startScanner () {
       audio: false
     }
     mediaStream = await navigator.mediaDevices.getUserMedia(constraints)
-
-    // 4) Conectar el stream al <video> (ya existe porque hicimos nextTick)
     const v = videoEl.value
     if (!v) throw new Error('No se encontró el elemento <video>.')
     v.srcObject = mediaStream
@@ -529,11 +545,9 @@ async function startScanner () {
     await v.play().catch(()=>{})
     await waitForVideoReady(v)
 
-    // 5) Detectar si hay más de una cámara
     const inputs = await navigator.mediaDevices.enumerateDevices()
     canSwitchCamera.value = inputs.filter(d => d.kind === 'videoinput').length > 1
 
-    // 6) Guardar track para torch/zoom y aplicar zoom inicial si está disponible
     currentTrack = mediaStream.getVideoTracks()[0]
     try {
       const caps = currentTrack.getCapabilities?.() || {}
@@ -542,24 +556,19 @@ async function startScanner () {
         await currentTrack.applyConstraints({ advanced: [{ zoom: Math.min(2, maxZoom.value) }] })
         zoomLevel.value = Math.min(2, maxZoom.value)
       }
-    } catch {error.value = 'No se pudo aplicar zoom inicial.'}
-      // opcional: no interrumpir si el dispositivo no soporta zoom
-    await new Promise(r => setTimeout(r, 500)) // esperar un poco al track
+    } catch { /* no-op */ }
+    await new Promise(r => setTimeout(r, 500))
 
-    // 7) Elegir ruta de decodificación
     if (barcodeDetector) {
-      // Nativo
       loopDetectNative()
     } else {
-      // ZXing WASM (con hints para PDF417)
-      zxingReader = new BrowserMultiFormatReader(getZXingHints(), 700) // 700ms entre intentos
+      zxingReader = new BrowserMultiFormatReader(getZXingHints(), 700)
       const cams = inputs.filter(d => d.kind === 'videoinput')
       const back = cams.find(d => /back|trasera|rear/i.test(d.label)) || cams[0]
       currentDeviceId = back?.deviceId || undefined
       scannerInfo.value = 'Usando ZXing (WASM).'
-      zxingReader.decodeFromVideoDevice(currentDeviceId ?? null, videoEl.value, (result/*, err, controls*/) => {
+      zxingReader.decodeFromVideoDevice(currentDeviceId ?? null, videoEl.value, (result) => {
         if (result?.getText) handleScan(result.getText())
-        // err se ignora para continuar
       })
     }
   } catch (e) {
@@ -568,8 +577,6 @@ async function startScanner () {
     stopScanner()
   }
 }
-
-
 function loopDetectNative () {
   const tick = async () => {
     if (!scannerActive.value || !videoEl.value || !barcodeDetector) return
@@ -587,14 +594,12 @@ function loopDetectNative () {
           if (value) { handleScan(value); return }
         }
       }
-    } catch (e) {
-      console.warn('Detector nativo error:', e)
-    }
+    // eslint-disable-next-line no-unused-vars
+    } catch (e){ /* ignore */ }
     rafId = requestAnimationFrame(tick)
   }
   rafId = requestAnimationFrame(tick)
 }
-
 async function switchCamera () {
   try {
     if (zxingReader) {
@@ -611,24 +616,19 @@ async function switchCamera () {
     currentFacing = (currentFacing === 'environment') ? 'user' : 'environment'
     await stopScanner()
     await startScanner()
-  } catch (e) {
-    console.warn('Detector nativo error:', e)
-    scanError.value = 'No se pudo cambiar de cámara.'
-  }
+  // eslint-disable-next-line no-unused-vars
+  } catch (e) { scanError.value = 'No se pudo cambiar de cámara.' }
 }
-
 async function toggleTorch () {
   try {
     if (!currentTrack) return
     const caps = currentTrack.getCapabilities?.() || {}
     if (!caps.torch) { scanError.value = 'Este dispositivo no soporta linterna.'; return }
-    torchOn.value = !torchOn.value
-    await currentTrack.applyConstraints({ advanced: [{ torch: torchOn.value }] })
-  } catch {
-    scanError.value = 'No se pudo cambiar la linterna.'
-  }
+    const newVal = !torchOn.value
+    await currentTrack.applyConstraints({ advanced: [{ torch: newVal }] })
+    torchOn.value = newVal
+  } catch { scanError.value = 'No se pudo cambiar la linterna.' }
 }
-
 async function setZoom (factor) {
   try {
     if (!currentTrack) return
@@ -636,10 +636,8 @@ async function setZoom (factor) {
     if (!caps.zoom) return
     zoomLevel.value = Math.min(Math.max(factor, caps.zoom.min || 1), caps.zoom.max || 1)
     await currentTrack.applyConstraints({ advanced: [{ zoom: zoomLevel.value }] })
-  } catch {error.value = 'No se pudo ajustar el zoom.'}
+  } catch { /* no-op */ }
 }
-
-// Heurística categoría
 function suggestCategoryFromText (t) {
   const s = String(t || '').toLowerCase()
   if (/(estacionamiento|parking)/i.test(s)) return 'Gastos de estacionamiento'
@@ -652,35 +650,26 @@ function suggestCategoryFromText (t) {
   if (/(proveed|factura)/i.test(s)) return 'proveedores'
   return 'Gastos varios con boleta'
 }
-
 function handleScan (raw) {
   if (!raw) return
   lastScan.value = String(raw).trim()
   autofillInfo.value = { montoOk: false, fechaOk: false, catOk: false }
-
-  // === EXTRA: parseo típico QR SII Chile (URL con t, f, fe) ===
   try {
     const urlMatch = lastScan.value.match(/https?:\/\/[^\s]+/i)?.[0]
     if (urlMatch) {
       const u = new URL(urlMatch)
-      const t = u.searchParams.get('t')   // monto
-      const f = u.searchParams.get('f')   // folio
-      const fe = u.searchParams.get('fe') // YYYY-MM-DD
+      const t = u.searchParams.get('t')
+      const f = u.searchParams.get('f')
+      const fe = u.searchParams.get('fe')
       if (t) {
         const n = Number(t.replace(/\./g,'').replace(/,/g,'.'))
-        if (!Number.isNaN(n) && n > 0) {
-          monto.value = n
-          moneda.value = 'CLP'
-          syncStep()
-          autofillInfo.value.montoOk = true
-        }
+        if (!Number.isNaN(n) && n > 0) { monto.value = n; moneda.value = 'CLP'; syncStep(); autofillInfo.value.montoOk = true }
       }
       if (f && !numeroDoc.value) { numeroDoc.value = f }
       if (fe) { fecha.value = fe; autofillInfo.value.fechaOk = true }
     }
-  } catch {error.value = 'No se pudo parsear URL del código.'}
+  } catch { /* ignore */ }
 
-  // Monto (DTE texto)
   let montoTxt = null
   const m1 = /<MntTotal>\s*([\d.,]+)\s*<\/MntTotal>/i.exec(lastScan.value)
   if (m1?.[1]) montoTxt = m1[1]
@@ -694,203 +683,153 @@ function handleScan (raw) {
   }
   if (!montoTxt) {
     const nums = lastScan.value.match(/[\d.]{4,}(?:,\d{2})?/g) || []
-    if (nums.length) {
-      montoTxt = nums.sort((a,b)=> (Number(b.replace(/\./g,'').replace(',', '.')) - Number(a.replace(/\./g,'').replace(',', '.'))))[0]
-    }
+    if (nums.length) montoTxt = nums.sort((a,b)=> (Number(b.replace(/\./g,'').replace(',', '.')) - Number(a.replace(/\./g,'').replace(',', '.'))))[0]
   }
   if (montoTxt) {
     const n = Number(montoTxt.replace(/\./g,'').replace(/,/g,'.'))
-    if (!Number.isNaN(n) && n > 0) {
-      monto.value = n
-      moneda.value = 'CLP'
-      syncStep()
-      autofillInfo.value.montoOk = true
-    }
+    if (!Number.isNaN(n) && n > 0) { monto.value = n; moneda.value = 'CLP'; syncStep(); autofillInfo.value.montoOk = true }
   }
 
-  // Fecha
   let fStr = null
   const f1 = /<FchEmis>\s*(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})\s*<\/FchEmis>/i.exec(lastScan.value)
   const f2 = /(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})/.exec(lastScan.value)
   const f3 = /(\d{1,2})[/-](\d{1,2})[/-](\d{4})/.exec(lastScan.value)
-  if (f1) {
-    // eslint-disable-next-line no-unused-vars
-    const [ _all, y, mo, d] = f1
-    fStr = `${y}-${String(mo).padStart(2,'0')}-${String(d).padStart(2,'0')}`
-  } else if (f2) {
-    // eslint-disable-next-line no-unused-vars
-    const [ _a, y, mo, d] = f2
-    fStr = `${y}-${String(mo).padStart(2,'0')}-${String(d).padStart(2,'0')}`
-  } else if (f3) {
-    // eslint-disable-next-line no-unused-vars
-    const [ _b, d, mo, y] = f3
-    fStr = `${y}-${String(mo).padStart(2,'0')}-${String(d).padStart(2,'0')}`
-  }
+  if (f1) { const [ , y, mo, d] = f1; fStr = `${y}-${String(mo).padStart(2,'0')}-${String(d).padStart(2,'0')}` }
+  else if (f2) { const [ , y, mo, d] = f2; fStr = `${y}-${String(mo).padStart(2,'0')}-${String(d).padStart(2,'0')}` }
+  else if (f3) { const [ , d, mo, y] = f3; fStr = `${y}-${String(mo).padStart(2,'0')}-${String(d).padStart(2,'0')}` }
   if (fStr) { fecha.value = fStr; autofillInfo.value.fechaOk = true }
 
-  // Categoría sugerida
   const catSugerida = suggestCategoryFromText(lastScan.value)
-  if (!categoria.value && catSugerida) {
-    categoria.value = catSugerida
-    autofillInfo.value.catOk = true
-  }
+  if (!categoria.value && catSugerida) { categoria.value = catSugerida; autofillInfo.value.catOk = true }
 
-  // Adjuntar al campo notas (no pisa lo anterior)
   const prefix = notas.value?.trim() ? (notas.value.trim() + '\n\n') : ''
   notas.value = `${prefix}Código escaneado:\n${lastScan.value}`
 
   stopScanner()
 }
-
 async function stopScanner () {
   try {
     if (rafId) cancelAnimationFrame(rafId)
     rafId = null
-    if (zxingReader) {
-      try { await zxingReader.reset() } catch {error.value = 'No se pudo detener ZXing.'}
-      zxingReader = null
-    }
-    if (mediaStream) {
-      mediaStream.getTracks().forEach(t => t.stop())
-      mediaStream = null
-    }
+    if (zxingReader) { try { await zxingReader.reset() } catch { /* no-op */ } zxingReader = null }
+    if (mediaStream) { mediaStream.getTracks().forEach(t => t.stop()); mediaStream = null }
     currentTrack = null
-  } finally {
-    scannerActive.value = false
-  }
+  } finally { scannerActive.value = false }
 }
-
-
 onBeforeUnmount(() => { stopScanner() })
 
-// ------- Modal "Tomar foto" -------
+/* ---------- Modal Foto ---------- */
 const photoActive = ref(false)
 const photoError = ref('')
 const photoVideoEl = ref(null)
 const photoCanvasEl = ref(null)
 let photoStream = null
 const photoReady = ref(false)
-
 function waitForVideoReadyGeneric (v) { return waitForVideoReady(v) }
-
 async function openPhotoCapture () {
-  photoError.value = ''
-  photoReady.value = false
+  photoError.value = ''; photoReady.value = false
   try {
     await stopScanner()
-
     photoStream = await navigator.mediaDevices.getUserMedia({
       video: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 }, height: { ideal: 720 } },
       audio: false
     })
-
     photoActive.value = true
     await nextTick()
-
     const v = photoVideoEl.value
     v.srcObject = photoStream
-    v.muted = true
-    v.setAttribute('muted', '')
-    v.playsInline = true
-    v.setAttribute('playsinline', '')
+    v.muted = true; v.setAttribute('muted', '')
+    v.playsInline = true; v.setAttribute('playsinline', '')
     v.setAttribute('autoplay', '')
-
     const readyP = waitForVideoReadyGeneric(v)
     await v.play().catch(() => {})
     await readyP
-
     photoReady.value = v.videoWidth > 0 && v.videoHeight > 0
-  } catch (e) {
-    console.error(e)
-    photoError.value = e?.message || 'No se pudo abrir la cámara.'
-    await closePhotoCapture()
-  }
+  } catch (e) { console.error(e); photoError.value = e?.message || 'No se pudo abrir la cámara.'; await closePhotoCapture() }
 }
-
 async function closePhotoCapture () {
-  try {
-    if (photoStream) {
-      photoStream.getTracks().forEach(t => t.stop())
-      photoStream = null
-    }
-  } catch {error.value = 'No se pudo cerrar la cámara.'}
+  try { if (photoStream) { photoStream.getTracks().forEach(t => t.stop()); photoStream = null } }
+  catch { /* no-op */ }
   photoReady.value = false
   photoActive.value = false
 }
-
 async function capturePhoto () {
   try {
     const v = photoVideoEl.value
     const c = photoCanvasEl.value
     if (!v || !c) throw new Error('No hay referencia de la cámara.')
-
     if (!photoReady.value || !v.videoWidth || !v.videoHeight) {
       await waitForVideoReadyGeneric(v)
       if (!v.videoWidth || !v.videoHeight) throw new Error('La cámara aún no está lista. Intenta de nuevo.')
       photoReady.value = true
     }
-
-    c.width = v.videoWidth
-    c.height = v.videoHeight
-    const ctx = c.getContext('2d')
-    ctx.drawImage(v, 0, 0, c.width, c.height)
+    c.width = v.videoWidth; c.height = v.videoHeight
+    const ctx = c.getContext('2d'); ctx.drawImage(v, 0, 0, c.width, c.height)
     const dataURL = c.toDataURL('image/jpeg', 0.9)
-
     const blob = await (await fetch(dataURL)).blob()
     const file = new File([blob], 'captura.jpg', { type: 'image/jpeg' })
     fotoPreview.value = await compressImageToDataURL(file, { maxW: 1280, maxH: 1280, quality: 0.8 })
-
     await closePhotoCapture()
-  } catch (e) {
-    console.error(e)
-    photoError.value = e?.message || 'No se pudo capturar la foto.'
+  } catch (e) { console.error(e); photoError.value = e?.message || 'No se pudo capturar la foto.' }
+}
+onBeforeUnmount(() => { stopScanner(); closePhotoCapture() })
+
+/* ---------- Guardar & Enviar ---------- */
+const buildDocPayload = (estado = 'borrador') => {
+  return {
+    userId: auth.uid,
+    nombre: auth.perfil?.nombre || 'Anónimo',
+    email: auth.perfil?.email || '',
+    empresa: auth.perfil?.empresa || null,
+
+    monto: Number(monto.value || 0),
+    moneda: moneda.value,
+    categoria: categoria.value,
+    motivo: (motivo.value || '').trim(),
+    notas: (notas.value || '').trim() || null,
+
+    tipoDocumento: tipoDoc.value,
+    numeroDocumento: numeroDoc.value,
+    folio: numeroDoc.value,
+    ...(tipoDoc.value === 'Boleta'  ? { numeroBoleta:  numeroDoc.value } : {}),
+    ...(tipoDoc.value === 'Factura' ? { numeroFactura: numeroDoc.value } : {}),
+
+    fecha: fecha.value ? Timestamp.fromDate(new Date(fecha.value)) : null,
+    estado, // 'borrador' | 'pendiente'
+    creadoEn: serverTimestamp(),
+    fotoPreview: fotoPreview.value || null,
+    informeId: null,
+    ...(estado === 'borrador' ? { enviadoEn: serverTimestamp(), enviadoPor: auth.perfil?.email || '' } : {})
   }
 }
-
-onBeforeUnmount(() => {
-  stopScanner()
-  closePhotoCapture()
-})
-
-// --------------------- Guardar ---------------------
+const validarBase = () => {
+  if (!auth.uid) throw new Error('No hay sesión activa.')
+  if (!tipoDoc.value || !numeroDoc.value) throw new Error('Falta el tipo y/o número de documento.')
+}
 const guardar = async () => {
-  error.value = ''
-  ok.value = false
-  cargando.value = true
+  error.value = ''; cargando.value = true
   try {
-    if (!auth.uid) throw new Error('No hay sesión activa.')
-    if (!tipoDoc.value || !numeroDoc.value) throw new Error('Falta el tipo y/o número de documento.')
-
-    const docData = {
-      userId: auth.uid,
-      nombre: auth.perfil?.nombre || 'Anónimo',
-      email: auth.perfil?.email || '',
-      empresa: auth.perfil?.empresa || null,
-
-      monto: Number(monto.value || 0),
-      moneda: moneda.value,
-      categoria: categoria.value,
-      motivo: (motivo.value || '').trim(),
-      notas: (notas.value || '').trim() || null,
-
-      tipoDocumento: tipoDoc.value,
-      numeroDocumento: numeroDoc.value,
-      folio: numeroDoc.value,
-      ...(tipoDoc.value === 'Boleta'  ? { numeroBoleta:  numeroDoc.value } : {}),
-      ...(tipoDoc.value === 'Factura' ? { numeroFactura: numeroDoc.value } : {}),
-
-      fecha: fecha.value ? Timestamp.fromDate(new Date(fecha.value)) : null,
-      estado: 'pendiente',
-      creadoEn: serverTimestamp(),
-      fotoPreview: fotoPreview.value || null,
-    }
-
-    await addDoc(collection(db, 'rendiciones'), docData)
+    validarBase()
+    await addDoc(collection(db, 'rendiciones'), buildDocPayload('borrador'))
     limpiarFormulario()
-    ok.value = true
+    showToast('Rendición guardada como borrador', 'bi-check-circle')
   } catch (e) {
     console.error(e)
     error.value = e.message || 'No se pudo guardar la rendición.'
+  } finally {
+    cargando.value = false
+  }
+}
+const enviar = async () => {
+  error.value = ''; cargando.value = true
+  try {
+    validarBase()
+    await addDoc(collection(db, 'rendiciones'), buildDocPayload('pendiente'))
+    limpiarFormulario()
+    showToast('Rendición enviada a revisión', 'bi-send-check')
+  } catch (e) {
+    console.error(e)
+    error.value = e.message || 'No se pudo enviar la rendición.'
   } finally {
     cargando.value = false
   }
@@ -921,4 +860,21 @@ const guardar = async () => {
 .modal-footer { border-top: 1px solid rgba(0,0,0,.06); border-bottom: 0; }
 .modal-title { margin: 0; font-size: 1rem; }
 .btn-close { border: 0; background: transparent; }
+
+/* Snackbar / Toast */
+.snackbar{
+  position: fixed;
+  bottom: 18px; right: 18px;
+  background: rgba(25,25,25,.92);
+  color: #fff;
+  padding: .65rem .9rem;
+  border-radius: 10px;
+  display: inline-flex;
+  align-items: center;
+  z-index: 2100;
+}
+.snackbar-enter-from{ transform: translateY(12px); opacity: 0; }
+.snackbar-enter-active{ transition: all .22s ease; }
+.snackbar-leave-to{ transform: translateY(10px); opacity: 0; }
+.snackbar-leave-active{ transition: all .16s ease; }
 </style>
