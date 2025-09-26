@@ -10,7 +10,7 @@
         <h2 class="h5 mb-0">Aprobador · Informes</h2>
       </div>
       <div class="d-flex gap-2">
-        <RouterLink class="btn btn-outline-secondary btn-sm" :to="{ name:'aprobador.rendiciones' }">
+        <RouterLink class="btn btn-outline-secondary btn-sm" :to="{ name: 'aprobador.rendiciones' }">
           <i class="bi bi-list-check"></i> Ver por rendiciones
         </RouterLink>
       </div>
@@ -85,57 +85,60 @@
     </div>
 
     <!-- Tabla -->
-    <div class="table-responsive">
-      <table class="table table-hover align-middle">
-        <thead class="table-light">
-          <tr>
-            <th>Fecha</th>
-            <th>Título</th>
-            <th class="d-none d-md-table-cell">Nota</th>
-            <th class="text-center"># Rendiciones</th>
-            <th>Estado</th>
-            <th class="text-end">Totales</th>
-            <th class="text-end"></th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr v-for="x in paginadas" :key="x.id" @click="ver(x.id)" style="cursor:pointer">
-            <td class="small text-nowrap">{{ formatFecha(x.creadoEn) }}</td>
-            <td class="fw-semibold">{{ x.titulo || '(Sin título)' }}</td>
-            <td class="d-none d-md-table-cell text-truncate" style="max-width: 360px;">{{ x.nota || '—' }}</td>
-            <td class="text-center">{{ x.rendicionIds?.length || 0 }}</td>
-            <td><span :class="['badge', badgeClass(x.estado)]">{{ x.estado }}</span></td>
-            <td class="text-end">
-              <div v-if="x.totalesPorMoneda" class="small">
-                <div v-for="(monto, code) in x.totalesPorMoneda" :key="code">
-                  <span class="text-muted">{{ code }}:</span> <strong>{{ formatMoney(monto, code) }}</strong>
-                </div>
-              </div>
-              <span v-else class="text-muted">—</span>
-            </td>
-            <td class="text-end">
-              <RouterLink
-                class="btn btn-sm btn-outline-secondary"
-                :to="{ name:'aprobadorInforme', params:{ id:x.id } }"
-                @click.stop
-              >
-                <i class="bi bi-eye"></i> Revisar
-              </RouterLink>
-            </td>
-          </tr>
-          <tr v-if="!paginadas.length">
-            <td colspan="7" class="text-center text-muted py-4">Sin resultados con los filtros.</td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
+    <div class="card shadow-sm mb-3">
+      <div class="card-body">
+        <div class="table-responsive">
+          <table class="table table-hover align-middle">
+            <thead class="table-light">
+              <tr>
+                <th>Fecha</th>
+                <th>Título</th>
+                <th class="d-none d-md-table-cell">Nota</th>
+                <th class="text-center"># Rendiciones</th>
+                <th>Estado</th>
+                <th class="text-end">Totales</th>
+                <th class="text-end"></th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="x in paginadas" :key="x.id" @click="ver(x.id)" style="cursor:pointer">
+                <td class="small text-nowrap">{{ formatFecha(x.creadoEn) }}</td>
+                <td class="fw-semibold">{{ x.titulo || '(Sin título)' }}</td>
+                <td class="d-none d-md-table-cell text-truncate" style="max-width: 360px;">{{ x.nota || '—' }}</td>
+                <td class="text-center">{{ x.rendicionIds?.length || 0 }}</td>
+                <td><span :class="['badge', badgeClass(x.estado)]">{{ x.estado }}</span></td>
+                <td class="text-end">
+                  <div v-if="x.totalesPorMoneda" class="small">
+                    <div v-for="(monto, code) in x.totalesPorMoneda" :key="code">
+                      <span class="text-muted">{{ code }}:</span> <strong>{{ formatMoney(monto, code) }}</strong>
+                    </div>
+                  </div>
+                  <span v-else class="text-muted">—</span>
+                </td>
+                <td class="text-end">
+                  <RouterLink class="btn btn-sm btn-outline-secondary"
+                    :to="{ name: 'aprobadorInforme', params: { id: x.id } }" @click.stop>
+                    <i class="bi bi-eye"></i> Revisar
+                  </RouterLink>
+                </td>
+              </tr>
+              <tr v-if="!paginadas.length">
+                <td colspan="7" class="text-center text-muted py-4">Sin resultados con los filtros.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
 
-    <!-- Paginación simple (client) -->
-    <div class="d-flex justify-content-between align-items-center mt-2" v-if="filtradas.length">
-      <div class="small text-muted">Mostrando {{ paginadas.length }} de {{ filtradas.length }}</div>
-      <div class="btn-group">
-        <button class="btn btn-outline-secondary btn-sm" @click="pagina--" :disabled="pagina<=1"><i class="bi bi-chevron-left"></i></button>
-        <button class="btn btn-outline-secondary btn-sm" @click="pagina++" :disabled="pagina>=totalPaginas"><i class="bi bi-chevron-right"></i></button>
+        <!-- Paginación simple (client) -->
+        <div class="d-flex justify-content-between align-items-center mt-2" v-if="filtradas.length">
+          <div class="small text-muted">Mostrando {{ paginadas.length }} de {{ filtradas.length }}</div>
+          <div class="btn-group">
+            <button class="btn btn-outline-secondary btn-sm" @click="pagina--" :disabled="pagina <= 1"><i
+                class="bi bi-chevron-left"></i></button>
+            <button class="btn btn-outline-secondary btn-sm" @click="pagina++" :disabled="pagina >= totalPaginas"><i
+                class="bi bi-chevron-right"></i></button>
+          </div>
+        </div>
       </div>
     </div>
   </div>
@@ -195,7 +198,7 @@ const inRange = (ts, desde, hasta) => {
   try {
     const d = ts?.toDate ? ts.toDate() : new Date(ts)
     if (desde) { const dd = new Date(desde); if (d < dd) return false }
-    if (hasta) { const hh = new Date(hasta); hh.setHours(23,59,59,999); if (d > hh) return false }
+    if (hasta) { const hh = new Date(hasta); hh.setHours(23, 59, 59, 999); if (d > hh) return false }
     return true
   } catch { return true }
 }
@@ -214,11 +217,11 @@ const filtradas = computed(() => {
       const matchFecha = inRange(x.creadoEn, fDesde.value, fHasta.value)
       return matchText && matchEstado && matchFecha
     })
-    .sort((a,b) => {
+    .sort((a, b) => {
       const da = a.creadoEn?.toDate ? a.creadoEn.toDate() : new Date(a.creadoEn)
       const dbb = b.creadoEn?.toDate ? b.creadoEn.toDate() : new Date(b.creadoEn)
       switch (orden.value) {
-        case 'fecha_asc':  return da - dbb
+        case 'fecha_asc': return da - dbb
         case 'fecha_desc': return dbb - da
         case 'titulo_asc': return (a.titulo || '').localeCompare(b.titulo || '')
         case 'titulo_desc': return (b.titulo || '').localeCompare(a.titulo || '')
@@ -242,11 +245,11 @@ const kpis = computed(() => {
 })
 
 const reset = () => {
-  q.value=''
-  fEstado.value='todos'
-  fDesde.value=''
-  fHasta.value=''
-  orden.value='fecha_desc'
+  q.value = ''
+  fEstado.value = 'todos'
+  fDesde.value = ''
+  fHasta.value = ''
+  orden.value = 'fecha_desc'
 }
 
 const ver = (id) => {
@@ -270,10 +273,10 @@ const formatFecha = (ts) => {
 }
 const formatMoney = (value, code) => {
   const n = Number(value || 0)
-  if (code === 'CLP') return new Intl.NumberFormat('es-CL', { style:'currency', currency:'CLP', maximumFractionDigits:0 }).format(n)
-  if (code === 'USD') return new Intl.NumberFormat('en-US', { style:'currency', currency:'USD' }).format(n)
-  if (code === 'EUR') return new Intl.NumberFormat('es-ES', { style:'currency', currency:'EUR' }).format(n)
-  if (code === 'UF')  return `UF ${new Intl.NumberFormat('es-CL', { minimumFractionDigits:2 }).format(n)}`
+  if (code === 'CLP') return new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP', maximumFractionDigits: 0 }).format(n)
+  if (code === 'USD') return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(n)
+  if (code === 'EUR') return new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR' }).format(n)
+  if (code === 'UF') return `UF ${new Intl.NumberFormat('es-CL', { minimumFractionDigits: 2 }).format(n)}`
   return n
 }
 const badgeClass = (estado) => ({

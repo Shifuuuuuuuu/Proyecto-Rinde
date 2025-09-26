@@ -13,11 +13,7 @@
     <div class="d-flex gap-2">
       <!-- Controles de edición SOLO si está devuelto -->
       <template v-if="isDevuelto">
-        <button
-          v-if="!editMode"
-          class="btn btn-primary btn-sm"
-          @click="enterEdit"
-        >
+        <button v-if="!editMode" class="btn btn-primary btn-sm" @click="enterEdit">
           <i class="bi bi-pencil-square"></i> Editar
         </button>
 
@@ -31,12 +27,8 @@
           </button>
         </template>
 
-        <button
-          class="btn btn-success btn-sm"
-          :disabled="saving || !canSend"
-          @click="sendInforme"
-          title="Enviar a revisión (pasa a pendiente)"
-        >
+        <button class="btn btn-success btn-sm" :disabled="saving || !canSend" @click="sendInforme"
+          title="Enviar a revisión (pasa a pendiente)">
           <i class="bi bi-send"></i> Enviar informe
         </button>
       </template>
@@ -46,28 +38,27 @@
       </RouterLink>
     </div>
   </div>
-   <!-- Observación del aprobador (solo devuelto o aprobado; no en pendiente) -->
-<div v-if="showObsAprobador" class="alert alert-light border shadow-sm mb-3">
-  <div class="d-flex">
-    <div class="me-3">
-      <span class="badge"
-            :class="isDevuelto ? 'text-bg-secondary' : 'text-bg-success'">
-        {{ isDevuelto ? 'devuelto' : 'aprobado' }}
-      </span>
-    </div>
-    <div class="flex-grow-1">
-      <div class="fw-semibold d-flex align-items-center gap-2">
-        <i class="bi bi-chat-dots text-primary"></i>
-        Observación del aprobador
+  <!-- Observación del aprobador (solo devuelto o aprobado; no en pendiente) -->
+  <div v-if="showObsAprobador" class="alert alert-light border shadow-sm mb-3">
+    <div class="d-flex">
+      <div class="me-3">
+        <span class="badge" :class="isDevuelto ? 'text-bg-secondary' : 'text-bg-success'">
+          {{ isDevuelto ? 'devuelto' : 'aprobado' }}
+        </span>
       </div>
-      <div class="mt-1 text-body">
-        {{ informe.observacionDevolucion }}
+      <div class="flex-grow-1">
+        <div class="fw-semibold d-flex align-items-center gap-2">
+          <i class="bi bi-chat-dots text-primary"></i>
+          Observación del aprobador
+        </div>
+        <div class="mt-1 text-body">
+          {{ informe.observacionDevolucion }}
+        </div>
       </div>
     </div>
   </div>
-</div>
 
-<!-- Observación final (solo cuando estado = finalizado) -->
+  <!-- Observación final (solo cuando estado = finalizado) -->
   <div v-if="showObsFinal" class="alert alert-success-subtle border border-success-subtle shadow-sm mb-3">
     <div class="d-flex">
       <div class="me-3">
@@ -98,14 +89,8 @@
           <div v-if="!editMode" class="fs-5 fw-semibold">
             {{ informe.titulo || '(Sin título)' }}
           </div>
-          <input
-            v-else
-            v-model.trim="formTitulo"
-            type="text"
-            class="form-control"
-            placeholder="Ej.: Informe de gastos — Viaje a cliente X"
-            maxlength="120"
-          />
+          <input v-else v-model.trim="formTitulo" type="text" class="form-control"
+            placeholder="Ej.: Informe de gastos — Viaje a cliente X" maxlength="120" />
         </div>
 
         <div class="col-md-4">
@@ -117,13 +102,8 @@
           <label class="text-muted small">Nota</label>
 
           <div v-if="!editMode" class="text-body">{{ informe.nota || '—' }}</div>
-          <textarea
-            v-else
-            v-model.trim="formNota"
-            class="form-control"
-            rows="3"
-            placeholder="Contexto del informe, aclaraciones, etc."
-          ></textarea>
+          <textarea v-else v-model.trim="formNota" class="form-control" rows="3"
+            placeholder="Contexto del informe, aclaraciones, etc."></textarea>
         </div>
       </div>
     </div>
@@ -154,7 +134,9 @@
         </div>
       </div>
 
-      <div class="small text-muted mb-2">Se listan tus rendiciones en <strong>borrador</strong> o <strong>pendiente</strong> y <strong>sin informe</strong>.</div>
+      <div class="small text-muted mb-2">Se listan tus rendiciones en <strong>borrador</strong> o
+        <strong>pendiente</strong> y <strong>sin informe</strong>.
+      </div>
 
       <div v-if="loadingPool" class="text-center py-4">
         <div class="spinner-border"></div>
@@ -165,9 +147,7 @@
           <thead class="table-light">
             <tr>
               <th style="width:36px" class="text-center">
-                <input class="form-check-input" type="checkbox"
-                       :checked="allPoolChecked"
-                       @change="toggleAllPool" />
+                <input class="form-check-input" type="checkbox" :checked="allPoolChecked" @change="toggleAllPool" />
               </th>
               <th>Fecha</th>
               <th style="width:64px;"></th>
@@ -202,71 +182,70 @@
           </tbody>
         </table>
       </div>
-
     </div>
   </div>
 
   <!-- Tabla de rendiciones del informe -->
-  <div class="table-responsive">
-    <table class="table table-hover align-middle">
-      <thead class="table-light">
-        <tr>
-          <th>Fecha</th>
-          <th style="width:64px;"></th>
-          <th>Categoría</th>
-          <th>Motivo</th>
-          <th class="text-end">Monto</th>
-          <th>Estado</th>
-          <th class="text-end"></th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr v-for="x in rendiciones" :key="x.id" @click="openPreview(x)" style="cursor:pointer">
-          <td class="small text-nowrap">{{ formatFecha(x.fecha) }}</td>
-          <td>
-            <div class="thumb-sm border rounded bg-light d-flex align-items-center justify-content-center">
-              <img v-if="x.fotoPreview" :src="x.fotoPreview" alt="thumb" />
-              <i v-else class="bi bi-receipt text-muted"></i>
-            </div>
-          </td>
-          <td>{{ x.categoria }}</td>
-          <td class="text-truncate" style="max-width: 360px;">
-            <span class="text-muted small me-1" v-if="x.notas" title="Notas"><i class="bi bi-sticky"></i></span>
-            {{ x.motivo }}
-          </td>
-          <td class="text-end">
-            <div class="fw-semibold">{{ formatMoney(x.monto, x.moneda || 'CLP') }}</div>
-            <div class="small text-muted">{{ x.moneda || 'CLP' }}</div>
-          </td>
-          <td>
-            <span :class="['badge', badgeClass(x.estado)]">{{ x.estado }}</span>
-            <span v-if="x.informeId" class="badge text-bg-info ms-1">en informe</span>
-          </td>
-          <td class="text-end">
-            <div class="btn-group btn-group-sm">
-              <button class="btn btn-outline-secondary" @click.stop="openPreview(x)">
-                <i class="bi bi-eye"></i> Ver
-              </button>
+  <div class="card shadow-sm mb-3">
+    <div class="card-body">
+      <div class="table-responsive">
+        <table class="table table-hover align-middle">
+          <thead class="table-light">
+            <tr>
+              <th>Fecha</th>
+              <th style="width:64px;"></th>
+              <th>Categoría</th>
+              <th>Motivo</th>
+              <th class="text-end">Monto</th>
+              <th>Estado</th>
+              <th class="text-end"></th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="x in rendiciones" :key="x.id" @click="openPreview(x)" style="cursor:pointer">
+              <td class="small text-nowrap">{{ formatFecha(x.fecha) }}</td>
+              <td>
+                <div class="thumb-sm border rounded bg-light d-flex align-items-center justify-content-center">
+                  <img v-if="x.fotoPreview" :src="x.fotoPreview" alt="thumb" />
+                  <i v-else class="bi bi-receipt text-muted"></i>
+                </div>
+              </td>
+              <td>{{ x.categoria }}</td>
+              <td class="text-truncate" style="max-width: 360px;">
+                <span class="text-muted small me-1" v-if="x.notas" title="Notas"><i class="bi bi-sticky"></i></span>
+                {{ x.motivo }}
+              </td>
+              <td class="text-end">
+                <div class="fw-semibold">{{ formatMoney(x.monto, x.moneda || 'CLP') }}</div>
+                <div class="small text-muted">{{ x.moneda || 'CLP' }}</div>
+              </td>
+              <td>
+                <span :class="['badge', badgeClass(x.estado)]">{{ x.estado }}</span>
+                <span v-if="x.informeId" class="badge text-bg-info ms-1">en informe</span>
+              </td>
+              <td class="text-end">
+                <div class="btn-group btn-group-sm">
+                  <button class="btn btn-outline-secondary" @click.stop="openPreview(x)">
+                    <i class="bi bi-eye"></i> Ver
+                  </button>
 
-              <!-- Quitar solo si está devuelto y en edición -->
-              <button
-                v-if="isDevuelto && editMode"
-                class="btn btn-outline-danger"
-                @click.stop="removeFromInforme(x.id)"
-              >
-                <i class="bi bi-x-circle"></i> Quitar
-              </button>
-            </div>
-          </td>
-        </tr>
+                  <!-- Quitar solo si está devuelto y en edición -->
+                  <button v-if="isDevuelto && editMode" class="btn btn-outline-danger"
+                    @click.stop="removeFromInforme(x.id)">
+                    <i class="bi bi-x-circle"></i> Quitar
+                  </button>
+                </div>
+              </td>
+            </tr>
 
-        <tr v-if="!rendiciones.length">
-          <td colspan="7" class="text-center text-muted py-4">Este informe no tiene rendiciones.</td>
-        </tr>
-      </tbody>
-    </table>
+            <tr v-if="!rendiciones.length">
+              <td colspan="7" class="text-center text-muted py-4">Este informe no tiene rendiciones.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
   </div>
-
   <!-- Resumen Aprobado / Rechazado -->
   <div class="row g-3 mt-2" v-if="rendiciones.length">
     <div class="col-md-6">
@@ -278,7 +257,7 @@
               <div class="fs-5 fw-semibold">{{ resumen.aprobadas.count }} rendición(es)</div>
             </div>
             <div class="text-end">
-              <div v-for="(monto, code) in resumen.aprobadas.totales" :key="'a-'+code" class="small">
+              <div v-for="(monto, code) in resumen.aprobadas.totales" :key="'a-' + code" class="small">
                 <span class="text-muted">{{ code }}:</span> <strong>{{ formatMoney(monto, code) }}</strong>
               </div>
             </div>
@@ -296,7 +275,7 @@
               <div class="fs-5 fw-semibold">{{ resumen.rechazadas.count }} rendición(es)</div>
             </div>
             <div class="text-end">
-              <div v-for="(monto, code) in resumen.rechazadas.totales" :key="'r-'+code" class="small">
+              <div v-for="(monto, code) in resumen.rechazadas.totales" :key="'r-' + code" class="small">
                 <span class="text-muted">{{ code }}:</span> <strong>{{ formatMoney(monto, code) }}</strong>
               </div>
             </div>
@@ -327,40 +306,36 @@
               <div class="col-lg-6">
                 <div class="image-card">
                   <div class="image-toolbar">
-                    <button class="btn btn-sm btn-outline-secondary" :disabled="!preview.data?.fotoPreview" @click="rotateImage(-90)">
+                    <button class="btn btn-sm btn-outline-secondary" :disabled="!preview.data?.fotoPreview"
+                      @click="rotateImage(-90)">
                       <i class="bi bi-arrow-counterclockwise"></i>
                     </button>
-                    <button class="btn btn-sm btn-outline-secondary" :disabled="!preview.data?.fotoPreview" @click="rotateImage(90)">
+                    <button class="btn btn-sm btn-outline-secondary" :disabled="!preview.data?.fotoPreview"
+                      @click="rotateImage(90)">
                       <i class="bi bi-arrow-clockwise"></i>
                     </button>
-                    <button class="btn btn-sm btn-outline-secondary" :disabled="!preview.data?.fotoPreview" @click="zoomOut">
+                    <button class="btn btn-sm btn-outline-secondary" :disabled="!preview.data?.fotoPreview"
+                      @click="zoomOut">
                       <i class="bi bi-zoom-out"></i>
                     </button>
-                    <button class="btn btn-sm btn-outline-secondary" :disabled="!preview.data?.fotoPreview" @click="zoomIn">
+                    <button class="btn btn-sm btn-outline-secondary" :disabled="!preview.data?.fotoPreview"
+                      @click="zoomIn">
                       <i class="bi bi-zoom-in"></i>
                     </button>
-                    <button class="btn btn-sm btn-outline-secondary" :disabled="!preview.data?.fotoPreview" @click="resetView">
+                    <button class="btn btn-sm btn-outline-secondary" :disabled="!preview.data?.fotoPreview"
+                      @click="resetView">
                       <i class="bi bi-aspect-ratio"></i>
                     </button>
-                    <a
-                      v-if="preview.data?.fotoPreview"
-                      class="btn btn-sm btn-outline-primary"
-                      :href="preview.data.fotoPreview"
-                      download="comprobante.jpg"
-                      target="_blank"
-                      rel="noopener"
-                    >
+                    <a v-if="preview.data?.fotoPreview" class="btn btn-sm btn-outline-primary"
+                      :href="preview.data.fotoPreview" download="comprobante.jpg" target="_blank" rel="noopener">
                       <i class="bi bi-download"></i> Descargar
                     </a>
                   </div>
 
                   <div class="image-stage">
-                    <div
-                      class="image-wrap"
-                      :style="{
-                        transform: 'translate(-50%, -50%) scale(' + preview.zoom + ') rotate(' + preview.rotate + 'deg)'
-                      }"
-                    >
+                    <div class="image-wrap" :style="{
+                      transform: 'translate(-50%, -50%) scale(' + preview.zoom + ') rotate(' + preview.rotate + 'deg)'
+                    }">
                       <img v-if="preview.data?.fotoPreview" :src="preview.data.fotoPreview" alt="comprobante" />
                       <div v-else class="no-image">
                         <i class="bi bi-receipt fs-1"></i>
@@ -392,7 +367,9 @@
                     <div class="mb-2">
                       <div class="text-muted small">Documento</div>
                       <div>
-                        {{ preview.data?.tipoDocumento }} · Folio {{ preview.data?.folio || preview.data?.numeroDocumento }}
+                        {{ preview.data?.tipoDocumento }} · Folio {{ preview.data?.folio ||
+                          preview.data?.numeroDocumento
+                        }}
                       </div>
                     </div>
                     <div class="mb-2" v-if="preview.data?.empresa">
@@ -470,7 +447,7 @@ const allPoolChecked = computed(() =>
 /* Toast */
 const toast = ref({ show: false, text: '', icon: 'bi-check-circle' })
 let toastTimer
-function showToast (text, icon = 'bi-check-circle') {
+function showToast(text, icon = 'bi-check-circle') {
   toast.value = { show: true, text, icon }
   clearTimeout(toastTimer)
   toastTimer = setTimeout(() => (toast.value.show = false), 2600)
@@ -478,7 +455,7 @@ function showToast (text, icon = 'bi-check-circle') {
 
 onMounted(loadAll)
 
-async function loadAll () {
+async function loadAll() {
   try {
     const refInf = doc(db, 'informes', id)
     const snap = await getDoc(refInf)
@@ -498,7 +475,7 @@ async function loadAll () {
   }
 }
 
-async function fetchRendicionesByIds (ids) {
+async function fetchRendicionesByIds(ids) {
   if (!ids.length) return []
   const chunks = []
   for (let i = 0; i < ids.length; i += 10) chunks.push(ids.slice(i, i + 10))
@@ -508,7 +485,7 @@ async function fetchRendicionesByIds (ids) {
     const snap = await getDocs(qRef)
     snap.forEach(d => results.push({ id: d.id, ...d.data() }))
   }
-  results.sort((a,b) => {
+  results.sort((a, b) => {
     const da = a.fecha?.toDate ? a.fecha.toDate() : new Date(a.fecha)
     const dbb = b.fecha?.toDate ? b.fecha.toDate() : new Date(b.fecha)
     return dbb - da
@@ -537,7 +514,7 @@ function recalcTotales(arr) {
 }
 
 /* ====== UI edición ====== */
-function enterEdit () {
+function enterEdit() {
   if (!isDevuelto.value) return
   editMode.value = true
   formTitulo.value = informe.value.titulo || ''
@@ -546,13 +523,13 @@ function enterEdit () {
   deltaCount.value = 0
   loadPoolRendiciones()
 }
-async function cancelEdit () {
+async function cancelEdit() {
   editMode.value = false
   selectedToAdd.value = []
   deltaCount.value = 0
   await loadAll() // recarga estado desde Firestore
 }
-async function saveInforme () {
+async function saveInforme() {
   try {
     saving.value = true
 
@@ -595,7 +572,7 @@ async function saveInforme () {
     saving.value = false
   }
 }
-async function sendInforme () {
+async function sendInforme() {
   try {
     saving.value = true
 
@@ -619,7 +596,7 @@ async function sendInforme () {
 }
 
 /* ====== Pool handlers ====== */
-async function loadPoolRendiciones () {
+async function loadPoolRendiciones() {
   try {
     loadingPool.value = true
     selectedToAdd.value = []
@@ -634,7 +611,7 @@ async function loadPoolRendiciones () {
       const x = { id: d.id, ...d.data() }
       if (x.estado === 'borrador' || x.estado === 'pendiente') arr.push(x)
     })
-    arr.sort((a,b) => {
+    arr.sort((a, b) => {
       const da = a.fecha?.toDate ? a.fecha.toDate() : new Date(a.fecha || a.creadoEn)
       const dbb = b.fecha?.toDate ? b.fecha.toDate() : new Date(b.fecha || b.creadoEn)
       return dbb - da
@@ -646,11 +623,11 @@ async function loadPoolRendiciones () {
     loadingPool.value = false
   }
 }
-function toggleAllPool (e) {
+function toggleAllPool(e) {
   if (e.target.checked) selectedToAdd.value = poolRendiciones.value.map(x => x.id)
   else selectedToAdd.value = []
 }
-async function addSelected () {
+async function addSelected() {
   try {
     if (!isDevuelto.value || !editMode.value) {
       return showToast('Solo puedes agregar rendiciones cuando el informe está devuelto y en edición.', 'bi-exclamation-triangle')
@@ -715,7 +692,7 @@ async function addSelected () {
 }
 
 /* ====== Quitar del informe (devuelto + edición) ====== */
-async function removeFromInforme (idRend) {
+async function removeFromInforme(idRend) {
   try {
     if (!isDevuelto.value || !editMode.value) return
     saving.value = true
@@ -762,12 +739,12 @@ const resumen = computed(() => {
 
 /* ====== Drawer imagen ====== */
 const preview = ref({ show: false, data: null, zoom: 1, rotate: 0 })
-function openPreview (x) { preview.value = { show: true, data: x, zoom: 1, rotate: 0 } }
-function closePreview () { preview.value.show = false }
-function rotateImage (deg) { preview.value.rotate = (preview.value.rotate + deg) % 360 }
-function zoomIn () { preview.value.zoom = Math.min(preview.value.zoom + 0.2, 5) }
-function zoomOut () { preview.value.zoom = Math.max(preview.value.zoom - 0.2, 0.2) }
-function resetView () { preview.value.zoom = 1; preview.value.rotate = 0 }
+function openPreview(x) { preview.value = { show: true, data: x, zoom: 1, rotate: 0 } }
+function closePreview() { preview.value.show = false }
+function rotateImage(deg) { preview.value.rotate = (preview.value.rotate + deg) % 360 }
+function zoomIn() { preview.value.zoom = Math.min(preview.value.zoom + 0.2, 5) }
+function zoomOut() { preview.value.zoom = Math.max(preview.value.zoom - 0.2, 0.2) }
+function resetView() { preview.value.zoom = 1; preview.value.rotate = 0 }
 
 /* ====== Formato ====== */
 const formatFecha = (ts) => {
@@ -776,16 +753,16 @@ const formatFecha = (ts) => {
 }
 const formatMoney = (value, code) => {
   const n = Number(value || 0)
-  if (code === 'CLP') return new Intl.NumberFormat('es-CL', { style:'currency', currency:'CLP', maximumFractionDigits:0 }).format(n)
-  if (code === 'USD') return new Intl.NumberFormat('en-US', { style:'currency', currency:'USD' }).format(n)
-  if (code === 'EUR') return new Intl.NumberFormat('es-ES', { style:'currency', currency:'EUR' }).format(n)
-  if (code === 'UF')  return `UF ${new Intl.NumberFormat('es-CL', { minimumFractionDigits:2 }).format(n)}`
+  if (code === 'CLP') return new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP', maximumFractionDigits: 0 }).format(n)
+  if (code === 'USD') return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(n)
+  if (code === 'EUR') return new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR' }).format(n)
+  if (code === 'UF') return `UF ${new Intl.NumberFormat('es-CL', { minimumFractionDigits: 2 }).format(n)}`
   return n
 }
 // Estados clave
-const isDevuelto    = computed(() => (informe.value?.estado || '').toLowerCase() === 'devuelto')
-const isAprobado    = computed(() => (informe.value?.estado || '').toLowerCase() === 'aprobado')
-const isFinalizado  = computed(() => (informe.value?.estado || '').toLowerCase() === 'finalizado')
+const isDevuelto = computed(() => (informe.value?.estado || '').toLowerCase() === 'devuelto')
+const isAprobado = computed(() => (informe.value?.estado || '').toLowerCase() === 'aprobado')
+const isFinalizado = computed(() => (informe.value?.estado || '').toLowerCase() === 'finalizado')
 
 // Observación del aprobador (devuelto o aprobado; oculta si "no" o vacío)
 const showObsAprobador = computed(() => {
@@ -818,68 +795,131 @@ const badgeClass = (estado) => ({
 <style scoped>
 /* Mini thumb */
 .thumb-sm {
-  width: 56px; height: 40px; overflow: hidden;
-  display:flex; align-items:center; justify-content:center;
+  width: 56px;
+  height: 40px;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
-.thumb-sm img { width: 100%; height: 100%; object-fit: cover; }
+
+.thumb-sm img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
 
 /* Drawer */
-.drawer-backdrop{
-  position: fixed; inset: 0; z-index: 2000;
-  background: rgba(12,16,24,.55);
+.drawer-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 2000;
+  background: rgba(12, 16, 24, .55);
   backdrop-filter: blur(2px);
-  display: grid; place-items: center;
+  display: grid;
+  place-items: center;
 }
-.drawer{
-  position: fixed; top: 0; right: 0; height: 100vh; width: min(980px, 94vw);
-  background: #fff; box-shadow: -14px 0 40px rgba(0,0,0,.18);
-  display: flex; flex-direction: column;
+
+.drawer {
+  position: fixed;
+  top: 0;
+  right: 0;
+  height: 100vh;
+  width: min(980px, 94vw);
+  background: #fff;
+  box-shadow: -14px 0 40px rgba(0, 0, 0, .18);
+  display: flex;
+  flex-direction: column;
 }
-.drawer-header{
-  padding: 10px 14px; border-bottom: 1px solid rgba(0,0,0,.06);
-  display: flex; align-items: center; justify-content: space-between;
+
+.drawer-header {
+  padding: 10px 14px;
+  border-bottom: 1px solid rgba(0, 0, 0, .06);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
 }
-.drawer-body{ padding: 12px; overflow: auto; height: calc(100vh - 54px); }
+
+.drawer-body {
+  padding: 12px;
+  overflow: auto;
+  height: calc(100vh - 54px);
+}
 
 /* Animaciones */
-.drawer-enter-from{ transform: translateX(8px); opacity: 0; }
-.drawer-enter-active{ transition: all .2s ease; }
-.drawer-leave-to{ transform: translateX(6px); opacity: 0; }
-.drawer-leave-active{ transition: all .16s ease; }
+.drawer-enter-from {
+  transform: translateX(8px);
+  opacity: 0;
+}
+
+.drawer-enter-active {
+  transition: all .2s ease;
+}
+
+.drawer-leave-to {
+  transform: translateX(6px);
+  opacity: 0;
+}
+
+.drawer-leave-active {
+  transition: all .16s ease;
+}
 
 /* Image viewer */
-.image-card{
-  border: 1px solid rgba(0,0,0,.06);
-  border-radius: 12px; overflow: hidden;
+.image-card {
+  border: 1px solid rgba(0, 0, 0, .06);
+  border-radius: 12px;
+  overflow: hidden;
   background: #fff;
 }
-.image-toolbar{
-  padding: 8px; border-bottom: 1px solid rgba(0,0,0,.06);
-  display: flex; gap: 6px; flex-wrap: wrap;
+
+.image-toolbar {
+  padding: 8px;
+  border-bottom: 1px solid rgba(0, 0, 0, .06);
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
 }
-.image-stage{
-  position: relative; height: 420px; background: #0b1220;
+
+.image-stage {
+  position: relative;
+  height: 420px;
+  background: #0b1220;
   overflow: hidden;
 }
-.image-wrap{
-  position: absolute; top: 50%; left: 50%;
+
+.image-wrap {
+  position: absolute;
+  top: 50%;
+  left: 50%;
   transform-origin: center center;
 }
-.image-wrap img{
-  max-width: 100%; max-height: 100%;
-  display: block; user-select: none; pointer-events: none;
+
+.image-wrap img {
+  max-width: 100%;
+  max-height: 100%;
+  display: block;
+  user-select: none;
+  pointer-events: none;
 }
-.no-image{
-  color: #cbd5e1; display: grid; place-items: center; width: 380px; height: 280px;
-  border: 1px dashed rgba(255,255,255,.25); border-radius: 12px;
-  background: rgba(255,255,255,.03);
+
+.no-image {
+  color: #cbd5e1;
+  display: grid;
+  place-items: center;
+  width: 380px;
+  height: 280px;
+  border: 1px dashed rgba(255, 255, 255, .25);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, .03);
 }
 
 /* Snackbar / Toast */
-.snackbar{
+.snackbar {
   position: fixed;
-  bottom: 18px; right: 18px;
-  background: rgba(25,25,25,.92);
+  bottom: 18px;
+  right: 18px;
+  background: rgba(25, 25, 25, .92);
   color: #fff;
   padding: .65rem .9rem;
   border-radius: 10px;
@@ -887,8 +927,22 @@ const badgeClass = (estado) => ({
   align-items: center;
   z-index: 2100;
 }
-.snackbar-enter-from{ transform: translateY(12px); opacity: 0; }
-.snackbar-enter-active{ transition: all .22s ease; }
-.snackbar-leave-to{ transform: translateY(10px); opacity: 0; }
-.snackbar-leave-active{ transition: all .16s ease; }
+
+.snackbar-enter-from {
+  transform: translateY(12px);
+  opacity: 0;
+}
+
+.snackbar-enter-active {
+  transition: all .22s ease;
+}
+
+.snackbar-leave-to {
+  transform: translateY(10px);
+  opacity: 0;
+}
+
+.snackbar-leave-active {
+  transition: all .16s ease;
+}
 </style>

@@ -69,6 +69,8 @@
         </div>
       </div>
     </div>
+
+    <!-- Tabla -->
     <div class="card shadow-sm">
       <div class="card-body">
         <div class="d-flex justify-content-between align-items-center mb-2 flex-wrap gap-2">
@@ -110,8 +112,10 @@
               </tr>
             </thead>
             <tbody>
-              <tr v-for="x in rendicionesFiltradas" :key="x.id">
-                <td class="text-center">
+              <tr v-for="x in rendicionesFiltradas" :key="x.id"
+                  class="row-click"
+                  @click="openDrawer(x)">
+                <td class="text-center" @click.stop>
                   <input class="form-check-input" type="checkbox"
                          :value="x.id" v-model="selectedIds" />
                 </td>
@@ -170,6 +174,156 @@
         </div>
       </div>
     </Transition>
+
+    <!-- ===== Drawer Detalle Rendición ===== -->
+    <Teleport to="body">
+      <Transition name="drawer">
+        <div v-if="drawer.show" class="drawer-backdrop" @click.self="closeDrawer">
+          <div class="drawer">
+            <!-- Header -->
+            <div class="drawer-header">
+              <div class="d-flex align-items-center gap-2">
+                <button class="btn btn-sm btn-outline-secondary" @click="closeDrawer">
+                  <i class="bi bi-chevron-right"></i>
+                </button>
+                <h6 class="m-0">Detalle de rendición</h6>
+              </div>
+              <div class="small text-muted">{{ formatFecha(drawer.data?.fecha || drawer.data?.creadoEn) }}</div>
+            </div>
+
+            <!-- Body -->
+            <div class="drawer-body">
+              <div class="row g-3">
+                <!-- Visor -->
+                <div class="col-lg-6">
+                  <div class="image-card">
+                    <!-- Toolbar -->
+                    <div class="image-toolbar">
+                      <div class="btn-group btn-group-sm">
+                        <button class="btn btn-outline-secondary" :disabled="!drawer.data?.fotoPreview" @click="rotate(-90)">
+                          <i class="bi bi-arrow-counterclockwise"></i>
+                        </button>
+                        <button class="btn btn-outline-secondary" :disabled="!drawer.data?.fotoPreview" @click="rotate(90)">
+                          <i class="bi bi-arrow-clockwise"></i>
+                        </button>
+                      </div>
+                      <div class="btn-group btn-group-sm">
+                        <button class="btn btn-outline-secondary" :disabled="!drawer.data?.fotoPreview" @click="zoomOut">
+                          <i class="bi bi-zoom-out"></i>
+                        </button>
+                        <button class="btn btn-outline-secondary" :disabled="!drawer.data?.fotoPreview" @click="zoomIn">
+                          <i class="bi bi-zoom-in"></i>
+                        </button>
+                        <button class="btn btn-outline-secondary" :disabled="!drawer.data?.fotoPreview" @click="resetView">
+                          <i class="bi bi-aspect-ratio"></i>
+                        </button>
+                      </div>
+                      <a
+                        v-if="drawer.data?.fotoPreview"
+                        class="btn btn-sm btn-outline-primary ms-auto"
+                        :href="drawer.data.fotoPreview"
+                        download="comprobante.jpg"
+                        target="_blank"
+                        rel="noopener"
+                      >
+                        <i class="bi bi-download"></i> Descargar
+                      </a>
+                    </div>
+
+                    <!-- Stage -->
+                    <div
+                      class="image-stage"
+                      @wheel.prevent="onWheel"
+                      @mousedown="onDragStart"
+                      @mousemove="onDragMove"
+                      @mouseup="onDragEnd"
+                      @mouseleave="onDragEnd"
+                      @touchstart.passive="onTouchStart"
+                      @touchmove.prevent="onTouchMove"
+                      @touchend="onTouchEnd"
+                    >
+                      <div
+                        class="image-wrap"
+                        :style="{
+                          transform:
+                            'translate(' + viewer.tx + 'px,' + viewer.ty + 'px) ' +
+                            'scale(' + viewer.zoom + ') ' +
+                            'rotate(' + viewer.rotate + 'deg)'
+                        }"
+                        :class="{ 'is-grabbable': viewer.zoom > 1, 'is-grabbing': viewer.dragging }"
+                      >
+                        <img v-if="drawer.data?.fotoPreview" :src="drawer.data.fotoPreview" alt="comprobante" />
+                        <div v-else class="no-image">
+                          <i class="bi bi-receipt fs-1"></i>
+                          <div class="small text-muted mt-1">Sin imagen</div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div class="small text-muted mt-2 d-flex gap-2">
+                    <span>Zoom: {{ (viewer.zoom * 100).toFixed(0) }}%</span>
+                    <span>·</span>
+                    <span>Rotación: {{ viewer.rotate }}°</span>
+                  </div>
+                </div>
+
+                <!-- Datos -->
+                <div class="col-lg-6">
+                  <div class="card">
+                    <div class="card-body">
+                      <div class="mb-2">
+                        <div class="text-muted small">Monto</div>
+                        <div class="fs-5 fw-semibold">
+                          {{ formatMoney(drawer.data?.monto, drawer.data?.moneda || 'CLP') }}
+                          <span class="small text-muted">{{ drawer.data?.moneda || 'CLP' }}</span>
+                        </div>
+                      </div>
+
+                      <div class="mb-2">
+                        <div class="text-muted small">Categoría</div>
+                        <div class="fw-semibold">{{ drawer.data?.categoria || '—' }}</div>
+                      </div>
+
+                      <div class="mb-2">
+                        <div class="text-muted small">Motivo</div>
+                        <div>{{ drawer.data?.motivo || '—' }}</div>
+                      </div>
+
+                      <div class="mb-2">
+                        <div class="text-muted small">Documento</div>
+                        <div>
+                          {{ drawer.data?.tipoDocumento || '—' }}
+                          <template v-if="drawer.data?.folio || drawer.data?.numeroDocumento">
+                            · Folio {{ drawer.data?.folio || drawer.data?.numeroDocumento }}
+                          </template>
+                        </div>
+                      </div>
+
+                      <div class="mb-2" v-if="drawer.data?.empresa">
+                        <div class="text-muted small">Empresa</div>
+                        <div>{{ drawer.data?.empresa }}</div>
+                      </div>
+
+                      <div class="mb-2" v-if="drawer.data?.notas">
+                        <div class="text-muted small">Notas</div>
+                        <pre class="mb-0 small">{{ drawer.data?.notas }}</pre>
+                      </div>
+
+                      <div class="mt-3">
+                        <span :class="['badge', badgeRend(drawer.data?.estado)]">{{ drawer.data?.estado }}</span>
+                        <span v-if="drawer.data?.informeId" class="badge text-bg-info ms-1">en informe</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+              </div>
+            </div><!-- /drawer-body -->
+          </div>
+        </div>
+      </Transition>
+    </Teleport>
 
     <!-- ===== Modales ===== -->
     <ModalPro
@@ -313,7 +467,7 @@
 </template>
 
 <script setup>
-import { onMounted, ref, computed } from 'vue'
+import { onMounted, ref, computed, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import ModalPro from '@/components/ModalPro.vue'
 import { db } from '@/firebase'
@@ -336,13 +490,13 @@ const rendiciones = ref([])
 const selectedIds = ref([])
 const filtroEstado = ref('')
 
-const modals = ref({
-  aprobar: { show: false, ids: [], comentario: '', error: '' },
-  rechazar: { show: false, ids: [], comentario: '', error: '' },
-  editar: { show: false, data: null },
-  finalizar: { show: false, comentario: '', error: '' },
-  devolver: { show: false, comentario: '', error: '' }
-})
+/* Drawer detalle */
+const drawer = ref({ show: false, data: null })
+function openDrawer (x) {
+  drawer.value = { show: true, data: x }
+  resetView()
+}
+function closeDrawer () { drawer.value.show = false }
 
 onMounted(loadAll)
 
@@ -412,6 +566,14 @@ const formatMoney = (value, code) => {
 const badgeRend = (estado) => ({ pendiente:'text-bg-warning', aprobada:'text-bg-success', rechazada:'text-bg-danger', borrador:'text-bg-secondary' }[estado] || 'text-bg-secondary')
 const badgeInforme = (estado) => ({ pendiente:'text-bg-warning', aprobado:'text-bg-success', parcial:'text-bg-info', rechazado:'text-bg-danger', devuelto:'text-bg-secondary', finalizado:'text-bg-success' }[estado] || 'text-bg-secondary')
 
+/* ====== Acciones de estado / modales ====== */
+const modals = ref({
+  aprobar: { show: false, ids: [], comentario: '', error: '' },
+  rechazar: { show: false, ids: [], comentario: '', error: '' },
+  editar: { show: false, data: null },
+  finalizar: { show: false, comentario: '', error: '' },
+  devolver: { show: false, comentario: '', error: '' }
+})
 function openApprove (ids) { modals.value.aprobar = { show: true, ids: [...ids], comentario: '', error: '' } }
 function openReject (ids)  { modals.value.rechazar = { show: true, ids: [...ids], comentario: '', error: '' } }
 function openEdit (rend) {
@@ -536,11 +698,67 @@ async function confirmDevolver () {
     m.show = false
   } catch (e) { console.error(e) } finally { guardando.value = false }
 }
+
+/* ====== Viewer (zoom/rotar/drag) ====== */
+const viewer = ref({
+  zoom: 1, rotate: 0, tx: 0, ty: 0,
+  dragging: false, startX: 0, startY: 0, startTx: 0, startTy: 0,
+  pinchDist: 0, startZoom: 1
+})
+function clampZoom (z) { return Math.min(5, Math.max(0.2, z)) }
+function resetView () { viewer.value = { zoom:1, rotate:0, tx:0, ty:0, dragging:false, startX:0,startY:0,startTx:0,startTy:0, pinchDist:0, startZoom:1 } }
+function zoomIn  () { viewer.value.zoom = clampZoom(viewer.value.zoom + 0.2) }
+function zoomOut () { viewer.value.zoom = clampZoom(viewer.value.zoom - 0.2) }
+function rotate  (deg) { viewer.value.rotate = (viewer.value.rotate + deg) % 360 }
+function onWheel (e) { viewer.value.zoom = clampZoom(viewer.value.zoom + (e.deltaY > 0 ? -0.15 : 0.15)) }
+function onDragStart (e) {
+  viewer.value.dragging = true
+  viewer.value.startX = e.clientX; viewer.value.startY = e.clientY
+  viewer.value.startTx = viewer.value.tx; viewer.value.startTy = viewer.value.ty
+}
+function onDragMove (e) {
+  if (!viewer.value.dragging) return
+  viewer.value.tx = viewer.value.startTx + (e.clientX - viewer.value.startX)
+  viewer.value.ty = viewer.value.startTy + (e.clientY - viewer.value.startY)
+}
+function onDragEnd () { viewer.value.dragging = false }
+function distance (t1, t2) { const dx=t1.clientX-t2.clientX, dy=t1.clientY-t2.clientY; return Math.hypot(dx,dy) }
+function onTouchStart (e) {
+  if (e.touches.length === 1) {
+    const t = e.touches[0]
+    viewer.value.dragging = true
+    viewer.value.startX = t.clientX; viewer.value.startY = t.clientY
+    viewer.value.startTx = viewer.value.tx; viewer.value.startTy = viewer.value.ty
+  } else if (e.touches.length === 2) {
+    viewer.value.dragging = false
+    viewer.value.pinchDist = distance(e.touches[0], e.touches[1])
+    viewer.value.startZoom = viewer.value.zoom
+  }
+}
+function onTouchMove (e) {
+  if (e.touches.length === 1 && viewer.value.dragging) {
+    const t = e.touches[0]
+    viewer.value.tx = viewer.value.startTx + (t.clientX - viewer.value.startX)
+    viewer.value.ty = viewer.value.startTy + (t.clientY - viewer.value.startY)
+  } else if (e.touches.length === 2) {
+    const d = distance(e.touches[0], e.touches[1])
+    const factor = d / (viewer.value.pinchDist || d)
+    viewer.value.zoom = clampZoom(viewer.value.startZoom * factor)
+  }
+}
+function onTouchEnd () { viewer.value.dragging = false }
+
+// reset al cambiar de item en el drawer
+watch(() => drawer.value.show, v => { if (v) resetView() })
 </script>
 
 <style scoped>
+/* Mini thumb */
 .thumb-sm { width: 56px; height: 40px; overflow: hidden; display:flex; align-items:center; justify-content:center; }
 .thumb-sm img { width: 100%; height: 100%; object-fit: cover; }
+
+/* Fila clickeable */
+.row-click { cursor: pointer; }
 
 /* ===== Barra flotante estilo MisRendiciones ===== */
 .fab-bar{
@@ -562,4 +780,63 @@ async function confirmDevolver () {
 .slide-up-blur-leave-active { transition: all .2s ease; }
 
 .badge { text-transform: capitalize; }
+
+/* ====== Drawer ====== */
+.drawer-backdrop{
+  position: fixed; inset: 0; z-index: 2000;
+  background: rgba(12,16,24,.55);
+  backdrop-filter: blur(2px);
+  display: grid; place-items: center;
+}
+.drawer{
+  position: fixed; top: 0; right: 0; height: 100vh; width: min(980px, 94vw);
+  background: #fff; box-shadow: -14px 0 40px rgba(0,0,0,.18);
+  display: flex; flex-direction: column;
+}
+.drawer-header{
+  padding: 10px 14px; border-bottom: 1px solid rgba(0,0,0,.06);
+  display: flex; align-items: center; justify-content: space-between;
+}
+.drawer-body{ padding: 12px; overflow: auto; height: calc(100vh - 54px); }
+
+/* Animaciones drawer */
+.drawer-enter-from{ transform: translateX(8px); opacity: 0; }
+.drawer-enter-active{ transition: all .2s ease; }
+.drawer-leave-to{ transform: translateX(6px); opacity: 0; }
+.drawer-leave-active{ transition: all .16s ease; }
+
+/* ====== Image viewer ====== */
+.image-card{
+  border: 1px solid rgba(0,0,0,.06);
+  border-radius: 12px; overflow: hidden;
+  background: #fff;
+}
+.image-toolbar{
+  padding: 8px; border-bottom: 1px solid rgba(0,0,0,.06);
+  display: flex; gap: 6px; flex-wrap: wrap; align-items: center;
+}
+.image-stage{
+  position: relative; height: 420px; background: #0b1220;
+  overflow: hidden; display: grid; place-items: center;
+}
+.image-wrap{
+  will-change: transform;
+  transition: transform .08s ease-out;
+  user-select: none;
+  pointer-events: none;
+}
+.image-wrap img{
+  max-width: 90%; max-height: 90%;
+  display: block;
+  user-select: none; pointer-events: none;
+}
+.no-image{
+  color: #cbd5e1; display: grid; place-items: center; width: 380px; height: 280px;
+  border: 1px dashed rgba(255,255,255,.25); border-radius: 12px;
+  background: rgba(255,255,255,.03);
+}
+
+/* Cursors para mejor UX */
+.image-wrap.is-grabbable { cursor: grab; }
+.image-wrap.is-grabbing { cursor: grabbing; }
 </style>

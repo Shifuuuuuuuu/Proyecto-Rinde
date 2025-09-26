@@ -824,7 +824,7 @@ const enviar = async () => {
   error.value = ''; cargando.value = true
   try {
     validarBase()
-    await addDoc(collection(db, 'rendiciones'), buildDocPayload('pendiente'))
+    await addDoc(collection(db, 'rendiciones'), buildDocPayload('borrador'))
     limpiarFormulario()
     showToast('Rendición enviada a revisión', 'bi-send-check')
   } catch (e) {

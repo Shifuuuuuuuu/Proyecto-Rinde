@@ -10,10 +10,10 @@
         </p>
       </div>
       <div class="d-flex gap-2">
-        <RouterLink class="btn btn-danger" :to="{ name:'crear' }">
+        <RouterLink class="btn btn-danger" :to="{ name: 'crear' }">
           <i class="bi bi-plus-lg me-1"></i> Nueva rendición
         </RouterLink>
-        <RouterLink class="btn btn-outline-dark" :to="{ name:'informes' }">
+        <RouterLink class="btn btn-outline-dark" :to="{ name: 'informes' }">
           <i class="bi bi-file-earmark-text me-1"></i> Ver informes
         </RouterLink>
       </div>
@@ -50,7 +50,8 @@
             <span class="badge text-bg-warning align-self-start">pendiente</span>
           </div>
           <div class="progress mt-3" style="height:6px;">
-            <div class="progress-bar bg-warning" :style="{ width: porcentaje(kpisR.pendientes, kpisR.total) + '%' }"></div>
+            <div class="progress-bar bg-warning" :style="{ width: porcentaje(kpisR.pendientes, kpisR.total) + '%' }">
+            </div>
           </div>
         </div>
       </div>
@@ -67,7 +68,8 @@
             <span class="badge text-bg-success align-self-start">aprobada</span>
           </div>
           <div class="progress mt-3" style="height:6px;">
-            <div class="progress-bar bg-success" :style="{ width: porcentaje(kpisR.aprobadas, kpisR.total) + '%' }"></div>
+            <div class="progress-bar bg-success" :style="{ width: porcentaje(kpisR.aprobadas, kpisR.total) + '%' }">
+            </div>
           </div>
         </div>
       </div>
@@ -84,7 +86,8 @@
             <span class="badge text-bg-danger align-self-start">rechazada</span>
           </div>
           <div class="progress mt-3" style="height:6px;">
-            <div class="progress-bar bg-danger" :style="{ width: porcentaje(kpisR.rechazadas, kpisR.total) + '%' }"></div>
+            <div class="progress-bar bg-danger" :style="{ width: porcentaje(kpisR.rechazadas, kpisR.total) + '%' }">
+            </div>
           </div>
         </div>
       </div>
@@ -115,7 +118,7 @@
               <span v-else>—</span>
             </div>
           </div>
-          <RouterLink class="btn btn-outline-secondary" :to="{ name:'rendiciones' }">
+          <RouterLink class="btn btn-outline-secondary" :to="{ name: 'rendiciones' }">
             Ver historial
           </RouterLink>
         </div>
@@ -153,7 +156,8 @@
             <span class="badge text-bg-warning align-self-start">pendiente</span>
           </div>
           <div class="progress mt-3" style="height:6px;">
-            <div class="progress-bar bg-warning" :style="{ width: porcentaje(kpisI.pendiente, kpisI.total) + '%' }"></div>
+            <div class="progress-bar bg-warning" :style="{ width: porcentaje(kpisI.pendiente, kpisI.total) + '%' }">
+            </div>
           </div>
         </div>
       </div>
@@ -170,7 +174,8 @@
             <span class="badge text-bg-success align-self-start">aprobado</span>
           </div>
           <div class="progress mt-3" style="height:6px;">
-            <div class="progress-bar bg-success" :style="{ width: porcentaje(kpisI.aprobado, kpisI.total) + '%' }"></div>
+            <div class="progress-bar bg-success" :style="{ width: porcentaje(kpisI.aprobado, kpisI.total) + '%' }">
+            </div>
           </div>
         </div>
       </div>
@@ -187,7 +192,8 @@
             <span class="badge text-bg-danger align-self-start">rechazado</span>
           </div>
           <div class="progress mt-3" style="height:6px;">
-            <div class="progress-bar bg-danger" :style="{ width: porcentaje(kpisI.rechazado, kpisI.total) + '%' }"></div>
+            <div class="progress-bar bg-danger" :style="{ width: porcentaje(kpisI.rechazado, kpisI.total) + '%' }">
+            </div>
           </div>
         </div>
       </div>
@@ -202,7 +208,7 @@
         <div class="card-body">
           <div class="d-flex justify-content-between align-items-center mb-2">
             <h5 class="card-title mb-0">Últimos movimientos</h5>
-            <RouterLink :to="{ name:'rendiciones' }" class="btn btn-sm btn-outline-secondary">Ver todos</RouterLink>
+            <RouterLink :to="{ name: 'rendiciones' }" class="btn btn-sm btn-outline-secondary">Ver todos</RouterLink>
           </div>
 
           <div v-if="cargando" class="text-center py-4">
@@ -216,8 +222,10 @@
           <ul v-else class="list-group list-group-flush">
             <li class="list-group-item" v-for="r in ultimosR" :key="r.id">
               <div class="d-flex align-items-center gap-3">
-                <div style="width:64px;height:64px" class="flex-shrink-0 d-flex align-items-center justify-content-center bg-light rounded border overflow-hidden">
-                  <img v-if="r.fotoPreview" :src="r.fotoPreview" alt="Comprobante" class="img-fluid" style="max-height:64px;max-width:64px;">
+                <div style="width:64px;height:64px"
+                  class="flex-shrink-0 d-flex align-items-center justify-content-center bg-light rounded border overflow-hidden">
+                  <img v-if="r.fotoPreview" :src="r.fotoPreview" alt="Comprobante" class="img-fluid"
+                    style="max-height:64px;max-width:64px;">
                   <i v-else class="bi bi-image text-muted fs-4"></i>
                 </div>
                 <div class="flex-grow-1">
@@ -231,7 +239,7 @@
                     {{ formatFecha(r.fecha) }} · {{ r.motivo }}
                   </div>
                 </div>
-                <RouterLink class="btn btn-sm btn-outline-secondary" :to="{ name:'detalle', params:{ id:r.id } }">
+                <RouterLink class="btn btn-sm btn-outline-secondary" :to="{ name: 'detalle', params: { id: r.id } }">
                   Ver
                 </RouterLink>
               </div>
@@ -248,7 +256,7 @@
         <div class="card-body d-flex flex-column">
           <div class="d-flex justify-content-between align-items-center mb-2">
             <h5 class="card-title mb-0">Últimos informes</h5>
-            <RouterLink :to="{ name:'informes' }" class="btn btn-sm btn-outline-secondary">Ver todos</RouterLink>
+            <RouterLink :to="{ name: 'informes' }" class="btn btn-sm btn-outline-secondary">Ver todos</RouterLink>
           </div>
 
           <div v-if="cargandoInformes" class="text-center py-4">
@@ -270,11 +278,7 @@
                     {{ formatFecha(inf.creadoEn) }} · {{ inf.rendicionIds?.length || 0 }} rend.
                   </div>
                   <div class="small mt-1" v-if="inf.totalesPorMoneda">
-                    <span
-                      v-for="(monto, code) in inf.totalesPorMoneda"
-                      :key="code"
-                      class="me-2 text-muted"
-                    >
+                    <span v-for="(monto, code) in inf.totalesPorMoneda" :key="code" class="me-2 text-muted">
                       {{ code }}: <strong>{{ formatMoney(monto, code) }}</strong>
                     </span>
                   </div>
@@ -282,10 +286,8 @@
                 <div class="text-end">
                   <span :class="['badge', badgeInforme(inf.estado)]">{{ inf.estado }}</span>
                   <div class="mt-2">
-                    <RouterLink
-                      class="btn btn-sm btn-outline-secondary"
-                      :to="{ name:'informeDetalle', params:{ id: inf.id } }"
-                    >
+                    <RouterLink class="btn btn-sm btn-outline-secondary"
+                      :to="{ name: 'informeDetalle', params: { id: inf.id } }">
                       Ver
                     </RouterLink>
                   </div>
@@ -295,7 +297,7 @@
           </ul>
 
           <div class="mt-auto pt-3 d-grid">
-            <RouterLink :to="{ name:'rendiciones' }" class="btn btn-dark">
+            <RouterLink :to="{ name: 'rendiciones' }" class="btn btn-dark">
               <i class="bi bi-file-earmark-plus me-1"></i>
               Crear informe (seleccionando rendiciones)
             </RouterLink>
@@ -356,10 +358,10 @@ const saludoNombre = computed(() => (perfilNombre.value ? `, ${perfilNombre.valu
 // Helpers
 const formatMoney = (value, code) => {
   const n = Number(value || 0)
-  if (code === 'CLP') return new Intl.NumberFormat('es-CL', { style:'currency', currency:'CLP', maximumFractionDigits:0 }).format(n)
-  if (code === 'USD') return new Intl.NumberFormat('en-US', { style:'currency', currency:'USD' }).format(n)
-  if (code === 'EUR') return new Intl.NumberFormat('es-ES', { style:'currency', currency:'EUR' }).format(n)
-  if (code === 'UF')  return `UF ${new Intl.NumberFormat('es-CL', { minimumFractionDigits:2, maximumFractionDigits:2 }).format(n)}`
+  if (code === 'CLP') return new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP', maximumFractionDigits: 0 }).format(n)
+  if (code === 'USD') return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(n)
+  if (code === 'EUR') return new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR' }).format(n)
+  if (code === 'UF') return `UF ${new Intl.NumberFormat('es-CL', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n)}`
   return n
 }
 const toDate = (ts) => (ts?.toDate ? ts.toDate() : new Date(ts))
@@ -368,9 +370,9 @@ const formatFecha = (ts) => {
   catch { return '-' }
 }
 const badgeRendicion = (estado) =>
-  ({ pendiente:'badge text-bg-warning', aprobada:'badge text-bg-success', rechazada:'badge text-bg-danger', borrador:'badge text-bg-secondary' }[estado] || 'badge text-bg-secondary')
+  ({ pendiente: 'badge text-bg-warning', aprobada: 'badge text-bg-success', rechazada: 'badge text-bg-danger', borrador: 'badge text-bg-secondary' }[estado] || 'badge text-bg-secondary')
 const badgeInforme = (estado) =>
-  ({ pendiente:'badge text-bg-warning', aprobado:'badge text-bg-success', parcial:'badge text-bg-info', rechazado:'badge text-bg-danger' }[estado] || 'badge text-bg-secondary')
+  ({ pendiente: 'badge text-bg-warning', aprobado: 'badge text-bg-success', parcial: 'badge text-bg-info', rechazado: 'badge text-bg-danger' }[estado] || 'badge text-bg-secondary')
 
 const porcentaje = (num, total) => {
   const t = total || 1
@@ -447,8 +449,20 @@ onMounted(() => {
 
 <style scoped>
 /* Pequeños detalles visuales para hacerlo más pulido */
-.card-title { font-weight: 600; }
-.list-group-item { border-left: 0; border-right: 0; }
-.list-group-item:first-child { border-top: 0; }
-.progress { background: rgba(0,0,0,.06); }
+.card-title {
+  font-weight: 600;
+}
+
+.list-group-item {
+  border-left: 0;
+  border-right: 0;
+}
+
+.list-group-item:first-child {
+  border-top: 0;
+}
+
+.progress {
+  background: rgba(0, 0, 0, .06);
+}
 </style>
