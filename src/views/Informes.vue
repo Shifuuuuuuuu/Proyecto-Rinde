@@ -3,11 +3,13 @@
 <template>
   <!-- Header -->
   <div class="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-2">
-    <h2 class="h5 mb-0">Informes</h2>
+      <div class="d-flex align-items-center gap-2">
+        <button class="btn btn-outline-secondary btn-sm" @click="router.back()">
+          <i class="bi bi-arrow-left"></i> Volver
+        </button>
+        <h2 class="h5 mb-0">Informes</h2>
+      </div>
     <div class="d-flex gap-2">
-      <button class="btn btn-outline-secondary btn-sm" @click="volver">
-        <i class="bi bi-arrow-left"></i> Volver
-      </button>
       <RouterLink class="btn btn-outline-secondary" to="/">
         <i class="bi bi-house"></i> Inicio
       </RouterLink>
@@ -148,7 +150,6 @@ import { useAuthStore } from '@/stores/auth'
 import { collection, query, where, orderBy, onSnapshot } from 'firebase/firestore'
 // para volver atrás en el historial
 const router = useRouter()
-const volver = () => router.back()
 
 const auth = useAuthStore()
 const items = ref([])

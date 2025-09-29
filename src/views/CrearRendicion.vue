@@ -69,8 +69,8 @@
                 class="form-control"
                 placeholder="N° de boleta/factura"
                 required
-                maxlength="30"
-                @input="numeroDoc = numeroDoc.replace(/[^0-9A-Za-z-]/g,'')"
+                maxlength="12"
+                @input="numeroDoc = numeroDoc.replace(/[^0-9]/g,'')"
               />
             </div>
             <div class="form-text">Ingresa el número tal como aparece en el comprobante.</div>
@@ -115,6 +115,10 @@
                   <button class="btn btn-outline-secondary" type="button" @click="openPhotoCapture">
                     <i class="bi bi-camera"></i> Tomar foto
                   </button>
+                  <button class="btn btn-outline-primary" type="button" @click="ocrFromCurrentPhoto" :disabled="!fotoPreview || ocr.loading">
+                    <span v-if="!ocr.loading"><i class="bi bi-magic"></i> Leer datos con OCR</span>
+                    <span v-else class="spinner-border spinner-border-sm"></span>
+                  </button>
                   <button type="button" class="btn btn-outline-secondary" @click="limpiarFoto" :disabled="!fotoPreview">
                     <i class="bi bi-x-circle"></i>
                     Quitar
@@ -132,6 +136,41 @@
             </div>
           </div>
 
+          <!-- Resultado OCR -->
+          <div class="col-12" v-if="ocr.lastText || ocr.error">
+            <div class="alert" :class="ocr.error ? 'alert-danger' : 'alert-light border'">
+              <div class="d-flex align-items-center justify-content-between">
+                <div class="fw-semibold">Resultado OCR</div>
+                <div class="small text-muted" v-if="ocr.confidence !== null">conf.: {{ ocr.confidence }}%</div>
+              </div>
+              <div v-if="ocr.error" class="mt-1">{{ ocr.error }}</div>
+
+              <template v-else>
+                <div class="mt-2 small text-muted">Campos detectados</div>
+                <div class="d-flex gap-2 flex-wrap">
+                  <span v-if="ocr.detected.monto !== null" class="badge text-bg-success">Monto: {{ formatMoney(ocr.detected.monto, ocr.detected.moneda || moneda) }}</span>
+                  <span v-if="ocr.detected.fecha" class="badge text-bg-success">Fecha: {{ ocr.detected.fecha }}</span>
+                  <span v-if="ocr.detected.numeroDoc" class="badge text-bg-success">Folio/N°: {{ ocr.detected.numeroDoc }}</span>
+                  <span v-if="ocr.detected.rut" class="badge text-bg-secondary">RUT: {{ ocr.detected.rut }}</span>
+                  <span v-if="ocr.detected.comercio" class="badge text-bg-secondary">Comercio: {{ ocr.detected.comercio }}</span>
+                  <span v-if="ocr.detected.moneda" class="badge text-bg-secondary">Moneda: {{ ocr.detected.moneda }}</span>
+                  <span v-if="ocr.detected.categoria" class="badge text-bg-secondary">Cat: {{ ocr.detected.categoria }}</span>
+                </div>
+
+                <div class="mt-2 d-flex gap-2">
+                  <button class="btn btn-sm btn-outline-primary" type="button" @click="aplicarOCR">
+                    Aplicar a formulario
+                  </button>
+                  <button class="btn btn-sm btn-outline-secondary" type="button" @click="toggleOcrRaw = !toggleOcrRaw">
+                    {{ toggleOcrRaw ? 'Ocultar' : 'Ver' }} texto OCR
+                  </button>
+                </div>
+
+                <pre v-if="toggleOcrRaw" class="mt-2 small bg-light p-2 rounded" style="white-space:pre-wrap; max-height:220px; overflow:auto">{{ ocr.lastText }}</pre>
+              </template>
+            </div>
+          </div>
+
           <!-- ESCÁNER QR / BARRAS -->
           <div class="col-12">
             <label class="form-label">Escanear código (QR o barras)</label>
@@ -141,6 +180,12 @@
                 <button class="btn btn-outline-danger" type="button" @click="startScanner">
                   <i class="bi bi-qr-code-scan me-1"></i> Activar cámara
                 </button>
+
+                <!-- NUEVO: pedir permiso explícito -->
+                <button class="btn btn-outline-secondary" type="button" @click="preAskPermission">
+                  <i class="bi bi-shield-check me-1"></i> Conceder permiso de cámara
+                </button>
+
                 <small class="text-muted">
                   Apunta al QR o código de barras de la boleta/factura. Requiere HTTPS y permiso de cámara.
                 </small>
@@ -179,7 +224,7 @@
               </div>
             </div>
 
-            <!-- Resultado -->
+            <!-- Resultado del escaneo -->
             <div v-if="lastScan" class="alert alert-light border mt-2 small">
               <div class="fw-semibold mb-1">Código leído</div>
               <div class="text-break">{{ lastScan }}</div>
@@ -299,6 +344,317 @@ import { addDoc, collection, serverTimestamp, Timestamp, doc, getDoc } from 'fir
 import { BrowserMultiFormatReader } from '@zxing/browser'
 import { BarcodeFormat, DecodeHintType } from '@zxing/library'
 
+/* ===== OCR (Tesseract) ===== */
+let Tesseract = null // carga diferida
+const ocr = ref({
+  loading: false,
+  lastText: '',
+  confidence: null,
+  error: '',
+  detected: {
+    monto: null,
+    moneda: null,
+    fecha: '',
+    numeroDoc: '',
+    rut: '',
+    comercio: '',
+    categoria: ''
+  }
+})
+const toggleOcrRaw = ref(false)
+async function ensureTesseract() {
+  if (!Tesseract) {
+    Tesseract = await import('tesseract.js')
+  }
+}
+async function runOcrOnDataURL(dataURL) {
+  await ensureTesseract()
+  ocr.value.loading = true
+  ocr.value.error = ''
+  ocr.value.lastText = ''
+  ocr.value.confidence = null
+  ocr.value.detected = { monto: null, moneda: null, fecha: '', numeroDoc: '', rut: '', comercio: '', categoria: '' }
+
+  try {
+    const { data } = await Tesseract.recognize(dataURL, 'eng', {
+      // Para mejor español: añade traineddata y usa 'spa+eng'
+      // langPath: '/tessdata',
+    })
+    const text = (data?.text || '').replace(/\u00AD/g, '')
+    ocr.value.lastText = text.trim()
+    ocr.value.confidence = data?.confidence ? Math.round(data.confidence) : null
+    const detected = parseReceiptText(text)
+    ocr.value.detected = detected
+  } catch (e) {
+    console.error(e)
+    ocr.value.error = e?.message || 'No se pudo leer el texto de la imagen.'
+  } finally {
+    ocr.value.loading = false
+  }
+}
+async function ocrFromCurrentPhoto () {
+  if (!fotoPreview.value) {
+    ocr.value.error = 'Primero selecciona o toma una foto del comprobante.'
+    return
+  }
+  await runOcrOnDataURL(fotoPreview.value)
+}
+function aplicarOCR () {
+  const d = ocr.value.detected
+
+  // 1) Monto + Moneda
+  if (d.monto !== null && d.monto > 0) {
+    monto.value = d.monto
+  }
+  if (d.moneda) {
+    moneda.value = d.moneda
+    syncStep()
+  }
+
+  // 2) Fecha
+  if (d.fecha) {
+    fecha.value = d.fecha
+  }
+
+  // 3) Documento
+  if (d.tipoDocSugerido) {
+    tipoDoc.value = d.tipoDocSugerido
+  } else if (!tipoDoc.value) {
+    // por defecto en Chile, si no hay señal, usa Boleta
+    tipoDoc.value = 'Boleta'
+  }
+
+  // 4) Folio/N° (si no lo tenías)
+  if (d.numeroDoc && !numeroDoc.value) {
+    numeroDoc.value = d.numeroDoc
+  }
+
+  // 5) Motivo = nombre del comercio (si existe)
+  //    “Compra en <Comercio>”
+  if (d.comercio) {
+    const base = `Compra en ${d.comercio}`
+    // si el usuario ya escribió algo distinto, no lo sobreescribas a la mala:
+    if (!motivo.value || /^compra en/i.test(motivo.value)) {
+      motivo.value = base
+    }
+  }
+
+  // 6) NOTAS: NO se tocan (el usuario las escribe)
+  // (Elimino cualquier lógica que agregaba el texto OCR a notas)
+
+  showToast('Datos aplicados (TOTAL, moneda, fecha, boleta, comercio)', 'bi-magic')
+}
+
+function parseReceiptText (raw) {
+  const original = String(raw || '')
+  const lines = original
+    .split(/\r?\n/)
+    .map(l => l.replace(/\u00AD/g, '').trim())
+    .filter(l => l)
+
+  const flat = original.replace(/\u00AD/g, '').replace(/\s+/g, ' ').trim()
+
+  // --- Moneda ---
+  let monedaDet = null
+  if (/\bUF\b/i.test(flat)) monedaDet = 'UF'
+  else if (/\bUSD\b|\bdólar|\bdolar/i.test(flat)) monedaDet = 'USD'
+  else if (/\bEUR\b|\beuro/i.test(flat)) monedaDet = 'EUR'
+  else if (/\$\s*\d/.test(flat)) monedaDet = 'CLP'
+  else monedaDet = 'CLP'
+
+  // --- Fecha ---
+  let fechaStr = ''
+  let f = /(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})/.exec(flat)
+  if (f) {
+    const [, y, mo, d] = f
+    fechaStr = `${y}-${String(mo).padStart(2,'0')}-${String(d).padStart(2,'0')}`
+  } else {
+    f = /(\d{1,2})[/-](\d{1,2})[/-](\d{4})/.exec(flat)
+    if (f) {
+      const [, d, mo, y] = f
+      fechaStr = `${y}-${String(mo).padStart(2,'0')}-${String(d).padStart(2,'0')}`
+    }
+  }
+
+  // --- Tipo de doc sugerido ---
+  let tipoDocSugerido = ''
+  if (/BOLETA/i.test(flat)) tipoDocSugerido = 'Boleta'
+  else if (/FACTURA/i.test(flat)) tipoDocSugerido = 'Factura'
+
+  // --- FOLIO/NUMERO (robusto y numérico) ---
+  // 1) patrones comunes cerca de "Folio / N° / No / Nro" o "Boleta/Factura ... N"
+  const folioFromLabels =
+    /(?:Folio|N[°º#]|Nro|No)\s*[:\-]?\s*([0-9][0-9.\-]{5,})/i.exec(flat) ||
+    /(Boleta|Factura)\s+(?:Electr[oó]nica)?\s*[N#º:\- ]\s*([0-9][0-9.\-]{5,})/i.exec(flat)
+
+  let numero = ''
+  if (folioFromLabels) {
+    const rawGroup = folioFromLabels[2] || folioFromLabels[1]
+    numero = normalizeFolio(rawGroup)
+  }
+
+  // 2) si aún no hay, busca secuencia “grande” de dígitos (6–12) en líneas que mencionen doc
+  if (!numero) {
+    const docLines = lines.filter(l => /(Folio|N[°º#]|Nro|No|Boleta|Factura)/i.test(l))
+    for (const l of docLines) {
+      const cand = (l.match(/\b\d[\d.\-]{5,}\b/g) || [])
+        .map(normalizeFolio)
+        .filter(x => /^\d{6,12}$/.test(x))
+      if (cand.length) { numero = cand[cand.length - 1]; break }
+    }
+  }
+
+  // 3) último fallback: mayor bloque numérico (6–12) en todo el texto
+  if (!numero) {
+    const allNums = (flat.match(/\b\d[\d.\-]{5,}\b/g) || [])
+      .map(normalizeFolio)
+      .filter(x => /^\d{6,12}$/.test(x))
+      .sort((a,b) => Number(b) - Number(a))
+    if (allNums.length) numero = allNums[0]
+  }
+
+  // --- COMERCIO (opcional, ya no lo usamos para rellenar) ---
+  const ADMIN_WORDS = /(RUT|GIRO|DIR|DIRECCI[ÓO]N|SUB\s*TOTAL|TOTAL|IVA|DESCUENTO|PAGAR|VUELTO|DEBITO|CREDITO|BOLETA|FACTURA|ELECTR[ÓO]NICA|SII)/i
+  let comercio = ''
+  const candidateByCaps = lines
+    .filter(l => l.length >= 5 && l.length <= 50)
+    .filter(l => !ADMIN_WORDS.test(l))
+    .filter(l => /[A-Za-zÁÉÍÓÚÑ]/.test(l))
+    .map(l => {
+      const upp = (l.replace(/[^A-Za-zÁÉÍÓÚÑ]/g,'').match(/[A-ZÁÉÍÓÚÑ]/g) || []).length
+      const low = (l.replace(/[^A-Za-zÁÉÍÓÚÑ]/g,'').match(/[a-záéíóúñ]/g) || []).length
+      return { l, score: upp - low }
+    })
+    .sort((a,b) => b.score - a.score)
+  if (candidateByCaps[0]?.l) comercio = candidateByCaps[0].l
+
+  // --- MONTO TOTAL (última línea con TOTAL, no SUBTOTAL ni TOTAL IVA) ---
+  let montoNum = null
+  const totalLines = lines.filter(l => /TOTAL/i.test(l) && !/SUB\s*TOTAL/i.test(l))
+  let chosenLine = totalLines.length ? totalLines[totalLines.length - 1] : ''
+  if (chosenLine) {
+    const nums = (chosenLine.match(/[\$]?\s*[\d.]{3,}(?:,\d{2})?/g) || []).map(x => x.replace(/[^\d.,]/g,''))
+    if (nums.length) {
+      const sorted = nums
+        .map(s => Number(s.replace(/\./g,'').replace(',', '.')))
+        .filter(n => !Number.isNaN(n) && n > 0)
+        .sort((a,b) => b - a)
+      if (sorted.length) montoNum = sorted[0]
+    }
+  }
+  if (montoNum === null) {
+    const allTotals = [...flat.matchAll(/TOTAL[^0-9]{0,10}([\$]?\s*[\d.]{3,}(?:,\d{2})?)/gi)]
+    if (allTotals.length) {
+      const last = allTotals[allTotals.length - 1][1]
+      const n = Number(String(last).replace(/[^\d,\.]/g,'').replace(/\./g,'').replace(',', '.'))
+      if (!Number.isNaN(n) && n > 0) montoNum = n
+    }
+  }
+  if (montoNum === null) {
+    const nums = (flat.match(/[\d.]{4,}(?:,\d{2})?/g) || [])
+      .map(s => Number(s.replace(/\./g,'').replace(',', '.')))
+      .filter(n => !Number.isNaN(n) && n > 0)
+      .sort((a,b) => b - a)
+    if (nums.length) montoNum = nums[0]
+  }
+
+  // --- Categoría sugerida (tu helper) ---
+  const categoriaSug = suggestCategoryFromText(flat)
+
+  return {
+    monto: montoNum,
+    moneda: monedaDet,
+    fecha: fechaStr,
+    numeroDoc: numero,      // solo números (6–12) si fue posible
+    rut: '',                // (opcional, no lo usamos ahora)
+    comercio,               // (no lo usamos ahora)
+    tipoDocSugerido,
+    categoria: categoriaSug
+  }
+}
+
+/** Normaliza un folio: quita puntos/guiones y descarta letras (evita "MRB") */
+function normalizeFolio(s) {
+  const only = String(s || '').replace(/[^\d]/g, '')   // solo dígitos
+  // aceptamos entre 6 y 12 dígitos (boletas comunes suelen 7–10)
+  return /^\d{6,12}$/.test(only) ? only : ''
+}
+
+// ===== Permisos / Soporte cámara =====
+const perms = ref({ camera: 'unknown' }) // 'granted' | 'denied' | 'prompt' | 'unknown'
+
+function isSecure() {
+  return location.protocol === 'https:' || location.hostname === 'localhost'
+}
+
+async function getPermissionState() {
+  try {
+    if (!('permissions' in navigator)) return 'unknown'
+    // Safari iOS no soporta 'camera'; caemos a 'unknown'
+    const s = await navigator.permissions.query({ name: 'camera' })
+    return s?.state || 'unknown'
+  } catch { return 'unknown' }
+}
+
+/** Pide permiso de cámara en un gesto de usuario. Crea un stream breve y lo apaga. */
+async function requestCameraPermission() {
+  if (!isSecure()) {
+    throw new Error('Esta función requiere HTTPS (o localhost) para pedir permisos de cámara.')
+  }
+  if (!navigator.mediaDevices?.getUserMedia) {
+    throw new Error('Este navegador no soporta getUserMedia().')
+  }
+  // Solicitud mínima y rápida
+  const stream = await navigator.mediaDevices.getUserMedia({
+    video: {
+      facingMode: { ideal: 'environment' },
+      width: { ideal: 640 }, height: { ideal: 480 }
+    },
+    audio: false
+  })
+  // apagar inmediatamente (solo era para disparar el prompt/permiso)
+  stream.getTracks().forEach(t => t.stop())
+}
+
+/** Traductor de errores a mensaje legible */
+function explainGetUserMediaError(e) {
+  const msg = String(e?.name || e?.message || e)
+  if (/NotAllowedError|Permission/i.test(msg)) {
+    return 'Permiso denegado. Habilita la cámara en los ajustes del navegador y vuelve a intentar.'
+  }
+  if (/NotFoundError|DevicesNotFound|OverconstrainedError/i.test(msg)) {
+    return 'No se encontró una cámara disponible. Revisa que el dispositivo tenga cámara y no esté en uso por otra app.'
+  }
+  if (/NotReadableError|TrackStartError/i.test(msg)) {
+    return 'La cámara está siendo usada por otra aplicación o el sistema no permite acceder ahora.'
+  }
+  if (!isSecure()) {
+    return 'Debes usar HTTPS (o localhost) para acceder a la cámara.'
+  }
+  return e?.message || 'No se pudo acceder a la cámara.'
+}
+
+async function preAskPermission() {
+  scanError.value = ''
+  try {
+    await requestCameraPermission()
+    perms.value.camera = await getPermissionState()
+    showToast('Permiso de cámara concedido', 'bi-shield-check')
+    scannerInfo.value = `Permiso cámara: ${perms.value.camera || 'concedido'}`
+  } catch (e) {
+    perms.value.camera = await getPermissionState()
+    scanError.value = explainGetUserMediaError(e)
+  }
+}
+
+onMounted(async () => {
+  perms.value.camera = await getPermissionState()
+  if (!isSecure()) {
+    scannerInfo.value = 'Advertencia: activa HTTPS para usar cámara/linterna.'
+  }
+})
+
+/* ===== Resto de tu componente ===== */
 const route = useRoute()
 const auth = useAuthStore()
 const router = useRouter()
@@ -408,6 +764,8 @@ const onFile = async (e) => {
   if (!file) return
   try {
     fotoPreview.value = await compressImageToDataURL(file, { maxW: 1280, maxH: 1280, quality: 0.7 })
+    // Opcional: lanzar OCR automáticamente
+    // await ocrFromCurrentPhoto()
   } catch (err) {
     console.error(err)
     error.value = 'No pudimos procesar la imagen.'
@@ -443,7 +801,7 @@ const compressImageToDataURL = (file, { maxW = 1280, maxH = 1280, quality = 0.8 
     reader.readAsDataURL(file)
   })
 
-/* ---------- ESCÁNER ---------- */
+/* ---------- ESCÁNER (QR/Barras) ---------- */
 const videoEl = ref(null)
 const canvasEl = ref(null)
 const scannerActive = ref(false)
@@ -505,7 +863,19 @@ async function startScanner () {
   autofillInfo.value = { montoOk: false, fechaOk: false, catOk: false }
   scannerInfo.value = ''
   try {
+    if (!isSecure()) throw new Error('Debes usar HTTPS (o localhost) para acceder a la cámara.')
     await closePhotoCapture()
+
+    // Si aún no está concedido, disparar prompt breve primero
+    try {
+      if (perms.value.camera !== 'granted') {
+        await requestCameraPermission()
+      }
+    } catch (e) {
+      // si falla aquí, mostramos mensaje claro y abortamos
+      throw e
+    }
+
     scannerActive.value = true
     await nextTick()
 
@@ -594,8 +964,7 @@ function loopDetectNative () {
           if (value) { handleScan(value); return }
         }
       }
-    // eslint-disable-next-line no-unused-vars
-    } catch (e){ /* ignore */ }
+    } catch (e){ console.error(e)}
     rafId = requestAnimationFrame(tick)
   }
   rafId = requestAnimationFrame(tick)
@@ -616,19 +985,37 @@ async function switchCamera () {
     currentFacing = (currentFacing === 'environment') ? 'user' : 'environment'
     await stopScanner()
     await startScanner()
-  // eslint-disable-next-line no-unused-vars
-  } catch (e) { scanError.value = 'No se pudo cambiar de cámara.' }
+  } catch (e) {
+    console.error(e) }
 }
 async function toggleTorch () {
   try {
-    if (!currentTrack) return
+    if (!isSecure()) { scanError.value = 'La linterna requiere sitio en HTTPS.'; return }
+    // si no hay track activo, intenta activar cámara rápida
+    if (!currentTrack) {
+      try {
+        if (perms.value.camera !== 'granted') await requestCameraPermission()
+        const s = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: { ideal: 'environment' } }, audio: false
+        })
+        // no lo conectamos al <video>; solo para tener un track válido
+        currentTrack = s.getVideoTracks()[0]
+      } catch (e) {
+        scanError.value = explainGetUserMediaError(e)
+        return
+      }
+    }
     const caps = currentTrack.getCapabilities?.() || {}
-    if (!caps.torch) { scanError.value = 'Este dispositivo no soporta linterna.'; return }
+    if (!caps.torch) { scanError.value = 'Este dispositivo/navegador no soporta linterna via web.'; return }
     const newVal = !torchOn.value
     await currentTrack.applyConstraints({ advanced: [{ torch: newVal }] })
     torchOn.value = newVal
-  } catch { scanError.value = 'No se pudo cambiar la linterna.' }
+  } catch (e) {
+    console.error(e)
+    scanError.value = 'No se pudo activar la linterna.'
+  }
 }
+
 async function setZoom (factor) {
   try {
     if (!currentTrack) return
@@ -727,9 +1114,20 @@ let photoStream = null
 const photoReady = ref(false)
 function waitForVideoReadyGeneric (v) { return waitForVideoReady(v) }
 async function openPhotoCapture () {
-  photoError.value = ''; photoReady.value = false
+    photoError.value = ''; photoReady.value = false
   try {
+    if (!isSecure()) throw new Error('Debes usar HTTPS (o localhost) para acceder a la cámara.')
     await stopScanner()
+
+    // Disparar prompt si aún no está
+    try {
+      if (perms.value.camera !== 'granted') {
+        await requestCameraPermission()
+      }
+    } catch (e) {
+      throw e
+    }
+
     photoStream = await navigator.mediaDevices.getUserMedia({
       video: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 }, height: { ideal: 720 } },
       audio: false
@@ -770,6 +1168,9 @@ async function capturePhoto () {
     const file = new File([blob], 'captura.jpg', { type: 'image/jpeg' })
     fotoPreview.value = await compressImageToDataURL(file, { maxW: 1280, maxH: 1280, quality: 0.8 })
     await closePhotoCapture()
+
+    // Opcional: lanzar OCR automáticamente
+    // await ocrFromCurrentPhoto()
   } catch (e) { console.error(e); photoError.value = e?.message || 'No se pudo capturar la foto.' }
 }
 onBeforeUnmount(() => { stopScanner(); closePhotoCapture() })

@@ -5,7 +5,12 @@
     <!-- HEADER -->
     <div class="d-flex flex-wrap gap-2 align-items-center justify-content-between mb-3">
       <div class="d-flex align-items-center gap-2">
-        <h2 class="h5 mb-0">Panel de rendiciones (Admin)</h2>
+        <div class="d-flex align-items-center gap-2">
+          <button class="btn btn-outline-secondary btn-sm" @click="router.back()">
+            <i class="bi bi-arrow-left"></i> Volver
+          </button>
+          <h2 class="h5 mb-0">Panel de rendiciones (Admin)</h2>
+        </div>
         <span v-if="onlyCurrentMonth" class="badge text-bg-primary">Mes actual</span>
         <span v-else class="badge text-bg-secondary">Todas</span>
       </div>
@@ -31,12 +36,8 @@
             <label class="form-label small">Buscar</label>
             <div class="input-group">
               <span class="input-group-text"><i class="bi bi-search"></i></span>
-              <input
-                v-model="search"
-                class="form-control"
-                placeholder="Motivo, empresa, comentario, número..."
-                @input="onSearchChange"
-              />
+              <input v-model="search" class="form-control" placeholder="Motivo, empresa, comentario, número..."
+                @input="onSearchChange" />
             </div>
           </div>
 
@@ -121,7 +122,7 @@
                 <small class="text-muted">{{ r.numero ? ('N° ' + r.numero) : '' }}</small>
               </td>
               <td>
-                <div class="fw-semibold">{{ r.nombre}}</div>
+                <div class="fw-semibold">{{ r.nombre }}</div>
                 <small class="text-muted">{{ r.email || '-' }}</small>
               </td>
               <td>{{ r.empresa || '-' }}</td>
@@ -148,7 +149,8 @@
                   <button class="btn btn-success btn-sm" @click="cambiarEstado(r, 'aprobada')" title="Aprobar">
                     <i class="bi bi-check2-circle"></i>
                   </button>
-                  <button class="btn btn-warning btn-sm" @click="cambiarEstado(r, 'pendiente')" title="Marcar pendiente">
+                  <button class="btn btn-warning btn-sm" @click="cambiarEstado(r, 'pendiente')"
+                    title="Marcar pendiente">
                     <i class="bi bi-hourglass-split"></i>
                   </button>
                   <button class="btn btn-danger btn-sm" @click="cambiarEstado(r, 'rechazada')" title="Rechazar">
@@ -440,15 +442,21 @@ export default {
 </script>
 
 <style scoped>
-.table td, .table th {
+.table td,
+.table th {
   vertical-align: middle;
 }
+
 .card {
   border-radius: 0.5rem;
 }
+
 .badge {
   font-weight: 600;
   letter-spacing: .2px;
 }
-.btn-group .btn { white-space: nowrap; }
+
+.btn-group .btn {
+  white-space: nowrap;
+}
 </style>

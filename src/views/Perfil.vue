@@ -1,7 +1,12 @@
 <!-- eslint-disable vue/multi-word-component-names -->
 <template>
   <div class="d-flex justify-content-between align-items-center mb-3">
-    <h1 class="h5 mb-0">Mi perfil</h1>
+      <div class="d-flex align-items-center gap-2">
+        <button class="btn btn-outline-secondary btn-sm" @click="router.back()">
+          <i class="bi bi-arrow-left"></i> Volver
+        </button>
+        <h2 class="h5 mb-0">Perfil</h2>
+      </div>
     <RouterLink class="btn btn-outline-secondary" to="/">
       <i class="bi bi-house"></i> Inicio
     </RouterLink>
@@ -42,9 +47,6 @@
         </div>
 
         <div class="text-end">
-          <RouterLink to="/cuenta/cambiar-password" class="btn btn-outline-secondary btn-sm">
-            <i class="bi bi-key me-1"></i> Cambiar contraseña
-          </RouterLink>
         </div>
       </div>
 
@@ -114,11 +116,11 @@
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
-import { RouterLink } from 'vue-router'
+import { RouterLink, useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { db } from '@/firebase'
 import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore'
-
+const router = useRouter()
 const auth = useAuthStore()
 
 // Estado UI

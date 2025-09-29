@@ -8,6 +8,9 @@
         <p class="text-muted mb-0">Analiza tus rendiciones por fecha, estado, moneda y categoría.</p>
       </div>
       <div class="d-flex gap-2">
+        <button class="btn btn-outline-secondary btn-sm" @click="router.back()">
+          <i class="bi bi-arrow-left"></i> Volver
+        </button>
         <RouterLink class="btn btn-outline-secondary" :to="{ name: 'informes' }">
           <i class="bi bi-file-earmark-text me-1"></i> Ver informes
         </RouterLink>
@@ -268,7 +271,8 @@ import { RouterLink } from 'vue-router'
 import { db } from '@/firebase'
 import { collection, query, where, orderBy, onSnapshot } from 'firebase/firestore'
 import { useAuthStore } from '@/stores/auth'
-
+import { useRouter } from 'vue-router'
+const router = useRouter()
 const auth = useAuthStore()
 
 // ===== Estado base =====

@@ -173,7 +173,7 @@ const itemsAprobador = [
 const itemsAdminPanel = [
   { label: 'Admin',                to: { name: 'admin' },                 icon: 'bi bi-speedometer2' },
   { label: 'Usuarios',             to: { name: 'AdminUsuarios' },         icon: 'bi bi-people' },
-  { label: 'Soporte (admin)',      to: { name: 'admin.soporte' },         icon: 'bi bi-life-preserver' },
+  { label: 'Soporte',      to: { name: 'admin.soporte' },         icon: 'bi bi-life-preserver' },
   { label: 'Informes',             to: { name: 'aprobadorInformes' },     icon: 'bi bi-file-earmark-check' },
 ]
 

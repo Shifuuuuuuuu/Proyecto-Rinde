@@ -63,7 +63,7 @@ const router = createRouter({
     { path: '/informes/:id', name: 'informeDetalle', component: InformeDetalle, props: true, meta: { title: 'Detalle de informe', requiresAuth: true } },
 
     // *** Aprobador de Informes (NUEVO) ***
-    { path: '/aprobador/informes-aprobador', name: 'aprobadorInformes', component: AprobadorInformes, meta: { requiresAuth: true, aprobadorOnly: true, title: 'Aprobador · Informes' } },
+    { path: '/aprobador/informes-aprobador', name: 'aprobadorInformes', component: AprobadorInformes, props: true, meta: { requiresAuth: true, aprobadorOnly: true, title: 'Aprobador · Informes' } },
     { path: '/aprobador/informes-aprobador/:id', name: 'aprobadorInforme', component: AprobadorInformeDetalle, props: route => ({ informeId: route.params.id }) , meta: { requiresAuth: true, aprobadorOnly: true, title: 'Aprobador · Detalle de informe' } },
 
     // Catch-all

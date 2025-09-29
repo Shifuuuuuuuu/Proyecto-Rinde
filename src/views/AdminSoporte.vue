@@ -3,8 +3,10 @@
     <!-- Header -->
     <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
       <div class="d-flex align-items-center gap-2">
+        <button class="btn btn-outline-secondary btn-sm" @click="router.back()">
+          <i class="bi bi-arrow-left"></i> Volver
+        </button>
         <h2 class="h5 mb-0">Gestión de Soporte</h2>
-        <span class="badge text-bg-secondary">{{ ticketsFiltrados.length }} ticket(s)</span>
       </div>
       <div class="d-flex align-items-center gap-2">
         <select v-model="filtro.estado" class="form-select form-select-sm" style="min-width:160px">
@@ -252,7 +254,8 @@ import {
   collection, query, orderBy, onSnapshot, doc, updateDoc, serverTimestamp,
   addDoc, getDocs, writeBatch
 } from 'firebase/firestore'
-
+import { useRouter } from 'vue-router'
+const router = useRouter()
 const auth = useAuthStore()
 
 // Estado de UI

@@ -4,6 +4,9 @@
     <!-- HEADER -->
     <div class="d-flex flex-wrap gap-2 align-items-center justify-content-between mb-3">
       <div class="d-flex align-items-center gap-2">
+        <button class="btn btn-outline-secondary btn-sm" @click="router.back()">
+          <i class="bi bi-arrow-left"></i> Volver
+        </button>
         <h2 class="h5 mb-0">Administración de usuarios</h2>
       </div>
       <div class="d-flex flex-wrap gap-2">
@@ -212,7 +215,8 @@ import {
   doc,
   serverTimestamp,
 } from 'firebase/firestore'
-
+import { useRouter } from 'vue-router'
+const router = useRouter()
 // ------ STATE ------
 const loading = ref(false)
 const saving = ref(false)
