@@ -227,7 +227,7 @@ const rol = ref('todos')
 const search = ref('')
 
 // opciones
-const rolOpts = ['admin', 'operador', 'visualizador', 'usuario']
+const rolOpts = ['admin', 'aprobador', 'rendidor']
 const monedaOpts = ['CLP', 'USD', 'EUR']
 
 // paginación

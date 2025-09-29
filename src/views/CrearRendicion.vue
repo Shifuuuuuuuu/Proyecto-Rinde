@@ -5,7 +5,7 @@
       <div class="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-2">
         <div>
           <h2 class="h5 mb-1">Nueva rendición</h2>
-          <p class="text-muted mb-0">Registra un gasto con su detalle y (opcional) una foto del comprobante.</p>
+          <p class="text-muted mb-0">Registra un gasto con su detalle y una foto del comprobante.</p>
         </div>
         <div class="d-flex gap-2">
           <button type="button" class="btn btn-outline-secondary btn-sm" @click="volver">
@@ -98,8 +98,7 @@
           <!-- Comprobante -->
           <div class="col-12">
             <div class="d-flex justify-content-between align-items-center">
-              <label class="form-label mb-0">Comprobante (opcional)</label>
-              <small class="text-muted">Miniatura en Firestore. Para archivos completos, usar Storage.</small>
+              <label class="form-label mb-0">Comprobante</label>
             </div>
 
             <div class="row g-3 mt-1">
@@ -113,15 +112,17 @@
                     class="form-control"
                   />
                   <button class="btn btn-outline-secondary" type="button" @click="openPhotoCapture">
-                    <i class="bi bi-camera"></i> Tomar foto
+                    <i class="bi bi-camera"></i> Foto
                   </button>
                   <button class="btn btn-outline-primary" type="button" @click="ocrFromCurrentPhoto" :disabled="!fotoPreview || ocr.loading">
-                    <span v-if="!ocr.loading"><i class="bi bi-magic"></i> Leer datos con OCR</span>
+                    <span v-if="!ocr.loading"><i class="bi bi-magic"></i> Scanear</span>
                     <span v-else class="spinner-border spinner-border-sm"></span>
                   </button>
                   <button type="button" class="btn btn-outline-secondary" @click="limpiarFoto" :disabled="!fotoPreview">
                     <i class="bi bi-x-circle"></i>
-                    Quitar
+                  </button>
+                  <button class="btn btn-outline-secondary" type="button" @click="preAskPermission">
+                    <i class="bi bi-shield-check"></i>
                   </button>
                 </div>
                 <div class="form-text">JPG/PNG; se comprime a máx. 1280px para la miniatura.</div>
@@ -161,9 +162,6 @@
                   <button class="btn btn-sm btn-outline-primary" type="button" @click="aplicarOCR">
                     Aplicar a formulario
                   </button>
-                  <button class="btn btn-sm btn-outline-secondary" type="button" @click="toggleOcrRaw = !toggleOcrRaw">
-                    {{ toggleOcrRaw ? 'Ocultar' : 'Ver' }} texto OCR
-                  </button>
                 </div>
 
                 <pre v-if="toggleOcrRaw" class="mt-2 small bg-light p-2 rounded" style="white-space:pre-wrap; max-height:220px; overflow:auto">{{ ocr.lastText }}</pre>
@@ -178,16 +176,11 @@
               <!-- Estado inactivo -->
               <div v-if="!scannerActive" class="d-grid gap-2">
                 <button class="btn btn-outline-danger" type="button" @click="startScanner">
-                  <i class="bi bi-qr-code-scan me-1"></i> Activar cámara
-                </button>
-
-                <!-- NUEVO: pedir permiso explícito -->
-                <button class="btn btn-outline-secondary" type="button" @click="preAskPermission">
-                  <i class="bi bi-shield-check me-1"></i> Conceder permiso de cámara
+                  <i class="bi bi-qr-code-scan me-1"></i> Scanea QR o código de barras
                 </button>
 
                 <small class="text-muted">
-                  Apunta al QR o código de barras de la boleta/factura. Requiere HTTPS y permiso de cámara.
+                  Apunta al QR o código de barras de la boleta/factura.
                 </small>
                 <div v-if="scannerInfo" class="small text-muted">{{ scannerInfo }}</div>
               </div>
@@ -218,20 +211,6 @@
                     <input type="range" min="1" :max="maxZoom" step="0.1" v-model.number="zoomLevel" @input="setZoom(zoomLevel)" style="width:140px" />
                   </div>
                 </div>
-
-                <div v-if="scannerInfo" class="small text-muted mt-1">{{ scannerInfo }}</div>
-                <div v-if="scanError" class="text-danger small mt-2">{{ scanError }}</div>
-              </div>
-            </div>
-
-            <!-- Resultado del escaneo -->
-            <div v-if="lastScan" class="alert alert-light border mt-2 small">
-              <div class="fw-semibold mb-1">Código leído</div>
-              <div class="text-break">{{ lastScan }}</div>
-              <div class="mt-2">
-                <span v-if="autofillInfo.montoOk" class="badge text-bg-success me-1">Monto actualizado</span>
-                <span v-if="autofillInfo.fechaOk" class="badge text-bg-success me-1">Fecha actualizada</span>
-                <span v-if="autofillInfo.catOk" class="badge text-bg-success me-1">Categoría sugerida</span>
               </div>
             </div>
           </div>
@@ -260,10 +239,6 @@
 
         <!-- Acciones -->
         <div class="d-flex gap-2 mt-2">
-          <button class="btn btn-primary" :disabled="cargando" @click.prevent="guardar">
-            <span v-if="!cargando"><i class="bi bi-check2-circle me-1"></i> Guardar (borrador)</span>
-            <span v-else class="spinner-border spinner-border-sm"></span>
-          </button>
           <button class="btn btn-success" type="button" :disabled="cargando" @click="enviar">
             <span v-if="!cargando"><i class="bi bi-send-check me-1"></i> Guardar y enviar</span>
             <span v-else class="spinner-border spinner-border-sm"></span>
@@ -402,7 +377,6 @@ async function ocrFromCurrentPhoto () {
 function aplicarOCR () {
   const d = ocr.value.detected
 
-  // 1) Monto + Moneda
   if (d.monto !== null && d.monto > 0) {
     monto.value = d.monto
   }
@@ -410,38 +384,23 @@ function aplicarOCR () {
     moneda.value = d.moneda
     syncStep()
   }
-
-  // 2) Fecha
   if (d.fecha) {
     fecha.value = d.fecha
   }
-
-  // 3) Documento
   if (d.tipoDocSugerido) {
     tipoDoc.value = d.tipoDocSugerido
   } else if (!tipoDoc.value) {
-    // por defecto en Chile, si no hay señal, usa Boleta
     tipoDoc.value = 'Boleta'
   }
-
-  // 4) Folio/N° (si no lo tenías)
   if (d.numeroDoc && !numeroDoc.value) {
     numeroDoc.value = d.numeroDoc
   }
-
-  // 5) Motivo = nombre del comercio (si existe)
-  //    “Compra en <Comercio>”
   if (d.comercio) {
     const base = `Compra en ${d.comercio}`
-    // si el usuario ya escribió algo distinto, no lo sobreescribas a la mala:
     if (!motivo.value || /^compra en/i.test(motivo.value)) {
       motivo.value = base
     }
   }
-
-  // 6) NOTAS: NO se tocan (el usuario las escribe)
-  // (Elimino cualquier lógica que agregaba el texto OCR a notas)
-
   showToast('Datos aplicados (TOTAL, moneda, fecha, boleta, comercio)', 'bi-magic')
 }
 
@@ -454,7 +413,7 @@ function parseReceiptText (raw) {
 
   const flat = original.replace(/\u00AD/g, '').replace(/\s+/g, ' ').trim()
 
-  // --- Moneda ---
+  // Moneda
   let monedaDet = null
   if (/\bUF\b/i.test(flat)) monedaDet = 'UF'
   else if (/\bUSD\b|\bdólar|\bdolar/i.test(flat)) monedaDet = 'USD'
@@ -462,7 +421,7 @@ function parseReceiptText (raw) {
   else if (/\$\s*\d/.test(flat)) monedaDet = 'CLP'
   else monedaDet = 'CLP'
 
-  // --- Fecha ---
+  // Fecha
   let fechaStr = ''
   let f = /(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})/.exec(flat)
   if (f) {
@@ -476,13 +435,12 @@ function parseReceiptText (raw) {
     }
   }
 
-  // --- Tipo de doc sugerido ---
+  // Tipo doc sugerido
   let tipoDocSugerido = ''
   if (/BOLETA/i.test(flat)) tipoDocSugerido = 'Boleta'
   else if (/FACTURA/i.test(flat)) tipoDocSugerido = 'Factura'
 
-  // --- FOLIO/NUMERO (robusto y numérico) ---
-  // 1) patrones comunes cerca de "Folio / N° / No / Nro" o "Boleta/Factura ... N"
+  // Folio / número
   const folioFromLabels =
     /(?:Folio|N[°º#]|Nro|No)\s*[:\-]?\s*([0-9][0-9.\-]{5,})/i.exec(flat) ||
     /(Boleta|Factura)\s+(?:Electr[oó]nica)?\s*[N#º:\- ]\s*([0-9][0-9.\-]{5,})/i.exec(flat)
@@ -492,8 +450,6 @@ function parseReceiptText (raw) {
     const rawGroup = folioFromLabels[2] || folioFromLabels[1]
     numero = normalizeFolio(rawGroup)
   }
-
-  // 2) si aún no hay, busca secuencia “grande” de dígitos (6–12) en líneas que mencionen doc
   if (!numero) {
     const docLines = lines.filter(l => /(Folio|N[°º#]|Nro|No|Boleta|Factura)/i.test(l))
     for (const l of docLines) {
@@ -503,8 +459,6 @@ function parseReceiptText (raw) {
       if (cand.length) { numero = cand[cand.length - 1]; break }
     }
   }
-
-  // 3) último fallback: mayor bloque numérico (6–12) en todo el texto
   if (!numero) {
     const allNums = (flat.match(/\b\d[\d.\-]{5,}\b/g) || [])
       .map(normalizeFolio)
@@ -513,7 +467,7 @@ function parseReceiptText (raw) {
     if (allNums.length) numero = allNums[0]
   }
 
-  // --- COMERCIO (opcional, ya no lo usamos para rellenar) ---
+  // Comercio (opcional)
   const ADMIN_WORDS = /(RUT|GIRO|DIR|DIRECCI[ÓO]N|SUB\s*TOTAL|TOTAL|IVA|DESCUENTO|PAGAR|VUELTO|DEBITO|CREDITO|BOLETA|FACTURA|ELECTR[ÓO]NICA|SII)/i
   let comercio = ''
   const candidateByCaps = lines
@@ -528,7 +482,7 @@ function parseReceiptText (raw) {
     .sort((a,b) => b.score - a.score)
   if (candidateByCaps[0]?.l) comercio = candidateByCaps[0].l
 
-  // --- MONTO TOTAL (última línea con TOTAL, no SUBTOTAL ni TOTAL IVA) ---
+  // Monto TOTAL
   let montoNum = null
   const totalLines = lines.filter(l => /TOTAL/i.test(l) && !/SUB\s*TOTAL/i.test(l))
   let chosenLine = totalLines.length ? totalLines[totalLines.length - 1] : ''
@@ -558,44 +512,177 @@ function parseReceiptText (raw) {
     if (nums.length) montoNum = nums[0]
   }
 
-  // --- Categoría sugerida (tu helper) ---
   const categoriaSug = suggestCategoryFromText(flat)
 
   return {
     monto: montoNum,
     moneda: monedaDet,
     fecha: fechaStr,
-    numeroDoc: numero,      // solo números (6–12) si fue posible
-    rut: '',                // (opcional, no lo usamos ahora)
-    comercio,               // (no lo usamos ahora)
+    numeroDoc: numero,
+    rut: '',
+    comercio,
     tipoDocSugerido,
     categoria: categoriaSug
   }
 }
 
-/** Normaliza un folio: quita puntos/guiones y descarta letras (evita "MRB") */
+/** Normaliza un folio a solo dígitos (6–12) */
 function normalizeFolio(s) {
-  const only = String(s || '').replace(/[^\d]/g, '')   // solo dígitos
-  // aceptamos entre 6 y 12 dígitos (boletas comunes suelen 7–10)
+  const only = String(s || '').replace(/[^\d]/g, '')
   return /^\d{6,12}$/.test(only) ? only : ''
 }
 
-// ===== Permisos / Soporte cámara =====
+/* ========= NUEVO: Parser SII robusto (URL / KV / TED) ========= */
+function cleanNumberLike(s) {
+  if (!s) return null
+  const txt = String(s).trim()
+  const hasCommaDecimal = /,\d{1,2}$/.test(txt)
+  const normalized = hasCommaDecimal
+    ? txt.replace(/\./g,'').replace(',', '.')
+    : txt.replace(/,/g,'')
+  const n = Number(normalized.replace(/[^\d.]/g,''))
+  return Number.isFinite(n) ? n : null
+}
+function toISODate(y, m, d) {
+  const yy = String(y).padStart(4,'0')
+  const mm = String(m).padStart(2,'0')
+  const dd = String(d).padStart(2,'0')
+  return `${yy}-${mm}-${dd}`
+}
+function tryDecodeURIComponent(s) {
+  try { return decodeURIComponent(s) } catch { return s }
+}
+function maybeBase64ToText(s) {
+  try {
+    const cleaned = String(s).replace(/[^A-Za-z0-9+/=]/g, '')
+    if (!cleaned || cleaned.length < 20) return ''
+    const decoded = atob(cleaned)
+    if (/<[a-zA-Z]/.test(decoded)) return decoded
+    return ''
+  } catch { return '' }
+}
+/** Devuelve { folio, fecha (YYYY-MM-DD), monto, tipoDoc } si encuentra algo. */
+function parseSIIFromScan(raw) {
+  const original = String(raw || '')
+  const text = tryDecodeURIComponent(original)
+
+  let folio = null
+  let fecha = null
+  let monto = null
+  let tipoDoc = null  // 'Boleta' | 'Factura' (por TD)
+
+  // 1) URL con query params
+  try {
+    const urlMatch = text.match(/https?:\/\/[^\s]+/i)?.[0]
+    if (urlMatch) {
+      const u = new URL(urlMatch)
+      const get = (k) => u.searchParams.get(k) || u.searchParams.get(k.toUpperCase())
+      const t  = get('t')  || get('total') || get('mnt') || get('m')
+      const f  = get('f')  || get('folio')
+      const fe = get('fe') || get('fecha')
+      const td = get('td') || get('tpo') || get('tipo')
+
+      if (t && monto == null) monto = cleanNumberLike(t)
+      if (f && !folio) folio = String(f).replace(/[^\d]/g,'')
+      if (fe && !fecha) {
+        let m
+        if ((m = fe.match(/^(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})$/))) fecha = toISODate(m[1], m[2], m[3])
+        else if ((m = fe.match(/^(\d{1,2})[/-](\d{1,2})[/-](\d{4})$/))) fecha = toISODate(m[3], m[2], m[1])
+      }
+      if (td && !tipoDoc) {
+        const tdn = Number(String(td).replace(/[^\d]/g,''))
+        if (tdn === 33 || tdn === 34) tipoDoc = 'Factura'
+        else if (tdn === 39 || tdn === 41) tipoDoc = 'Boleta'
+      }
+    }
+  } catch { /* no-op */ }
+
+  // 2) Clave-valor plano (T=33;F=...;FE=...;MNT=...)
+  const kvRegex = /(?:^|[;&\n\r\s])([A-Z]{1,4})\s*[:=]\s*([0-9A-Za-z\-./]+)/gi
+  let m
+  while ((m = kvRegex.exec(text)) !== null) {
+    const key = m[1].toUpperCase()
+    const val = m[2]
+    if (!folio && (key === 'F' || key === 'FOLIO')) {
+      const v = String(val).replace(/[^\d]/g,'')
+      if (v.length >= 6 && v.length <= 12) folio = v
+    }
+    if (!monto && (key === 'MNT' || key === 'MONTO' || key === 'TOTAL' || key === 'T')) {
+      const n = cleanNumberLike(val)
+      if (n && n > 0) {
+        if (key !== 'T' || (key === 'T' && n > 1000)) monto = n
+      }
+    }
+    if (!fecha && (key === 'FE' || key === 'FECHA' || key === 'FEC')) {
+      let dd
+      if ((dd = val.match(/^(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})$/))) fecha = toISODate(dd[1], dd[2], dd[3])
+      else if ((dd = val.match(/^(\d{1,2})[/-](\d{1,2})[/-](\d{4})$/))) fecha = toISODate(dd[3], dd[2], dd[1])
+    }
+    if (!tipoDoc && (key === 'TD' || key === 'TPO' || (key === 'T' && Number(val) < 100))) {
+      const tdn = Number(String(val).replace(/[^\d]/g,''))
+      if (tdn === 33 || tdn === 34) tipoDoc = 'Factura'
+      else if (tdn === 39 || tdn === 41) tipoDoc = 'Boleta'
+    }
+  }
+
+  // 3) TED XML (directo o base64)
+  const tryParseTED = (xml) => {
+    const g = (tag) => {
+      const r = new RegExp(`<${tag}>\\s*([^<]+)\\s*</${tag}>`, 'i').exec(xml)
+      return r?.[1] || ''
+    }
+    if (!folio) {
+      const f = g('F') || g('Folio')
+      if (f) folio = String(f).replace(/[^\d]/g,'')
+    }
+    if (!monto) {
+      const mt = g('MNT') || g('MntTotal') || g('TOTAL')
+      const n = cleanNumberLike(mt)
+      if (n && n > 0) monto = n
+    }
+    if (!fecha) {
+      let fe = g('FE') || g('FCH') || g('FCH_Emis') || g('FchEmis')
+      if (fe) {
+        let mm
+        if ((mm = fe.match(/^(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})$/))) fecha = toISODate(mm[1], mm[2], mm[3])
+        else if ((mm = fe.match(/^(\d{1,2})[/-](\d{1,2})[/-](\d{4})$/))) fecha = toISODate(mm[3], mm[2], mm[1])
+      }
+    }
+    if (!tipoDoc) {
+      const td = g('TD') || g('TipoDTE')
+      const tdn = Number(String(td).replace(/[^\d]/g,''))
+      if (tdn === 33 || tdn === 34) tipoDoc = 'Factura'
+      else if (tdn === 39 || tdn === 41) tipoDoc = 'Boleta'
+    }
+  }
+
+  const tedMatch = text.match(/<TED[\s\S]*?<\/TED>/i)?.[0]
+  if (tedMatch) tryParseTED(tedMatch)
+
+  if (!folio || !monto || !fecha) {
+    const b64cand = (text.match(/[A-Za-z0-9+/=]{40,}/g) || []).slice(0, 5)
+    for (const b64 of b64cand) {
+      const xml = maybeBase64ToText(b64)
+      if (xml && /<TED/i.test(xml)) { tryParseTED(xml); break }
+    }
+  }
+
+  return { folio, fecha, monto, tipoDoc }
+}
+
+/* ===== Permisos / Soporte cámara ===== */
 const perms = ref({ camera: 'unknown' }) // 'granted' | 'denied' | 'prompt' | 'unknown'
 
 function isSecure() {
   return location.protocol === 'https:' || location.hostname === 'localhost'
 }
-
 async function getPermissionState() {
   try {
     if (!('permissions' in navigator)) return 'unknown'
-    // Safari iOS no soporta 'camera'; caemos a 'unknown'
     const s = await navigator.permissions.query({ name: 'camera' })
     return s?.state || 'unknown'
   } catch { return 'unknown' }
 }
-
 /** Pide permiso de cámara en un gesto de usuario. Crea un stream breve y lo apaga. */
 async function requestCameraPermission() {
   if (!isSecure()) {
@@ -604,18 +691,12 @@ async function requestCameraPermission() {
   if (!navigator.mediaDevices?.getUserMedia) {
     throw new Error('Este navegador no soporta getUserMedia().')
   }
-  // Solicitud mínima y rápida
   const stream = await navigator.mediaDevices.getUserMedia({
-    video: {
-      facingMode: { ideal: 'environment' },
-      width: { ideal: 640 }, height: { ideal: 480 }
-    },
+    video: { facingMode: { ideal: 'environment' }, width: { ideal: 640 }, height: { ideal: 480 } },
     audio: false
   })
-  // apagar inmediatamente (solo era para disparar el prompt/permiso)
   stream.getTracks().forEach(t => t.stop())
 }
-
 /** Traductor de errores a mensaje legible */
 function explainGetUserMediaError(e) {
   const msg = String(e?.name || e?.message || e)
@@ -633,7 +714,6 @@ function explainGetUserMediaError(e) {
   }
   return e?.message || 'No se pudo acceder a la cámara.'
 }
-
 async function preAskPermission() {
   scanError.value = ''
   try {
@@ -646,7 +726,6 @@ async function preAskPermission() {
     scanError.value = explainGetUserMediaError(e)
   }
 }
-
 onMounted(async () => {
   perms.value.camera = await getPermissionState()
   if (!isSecure()) {
@@ -708,7 +787,7 @@ const CATEGORIAS = [
   'Artículos de aseo con boleta',
   'Útiles y Artículos de oficina con boleta',
   'Gastos varios con boleta',
-  'proveedores',
+  'Proveedores',
   'Gastos de colación con boleta',
   'Gastos de movilización - pasajes con boletas'
 ]
@@ -764,8 +843,6 @@ const onFile = async (e) => {
   if (!file) return
   try {
     fotoPreview.value = await compressImageToDataURL(file, { maxW: 1280, maxH: 1280, quality: 0.7 })
-    // Opcional: lanzar OCR automáticamente
-    // await ocrFromCurrentPhoto()
   } catch (err) {
     console.error(err)
     error.value = 'No pudimos procesar la imagen.'
@@ -866,13 +943,12 @@ async function startScanner () {
     if (!isSecure()) throw new Error('Debes usar HTTPS (o localhost) para acceder a la cámara.')
     await closePhotoCapture()
 
-    // Si aún no está concedido, disparar prompt breve primero
+    // Disparar prompt si no está concedido
     try {
       if (perms.value.camera !== 'granted') {
         await requestCameraPermission()
       }
     } catch (e) {
-      // si falla aquí, mostramos mensaje claro y abortamos
       throw e
     }
 
@@ -986,19 +1062,18 @@ async function switchCamera () {
     await stopScanner()
     await startScanner()
   } catch (e) {
-    console.error(e) }
+    console.error(e)
+  }
 }
 async function toggleTorch () {
   try {
     if (!isSecure()) { scanError.value = 'La linterna requiere sitio en HTTPS.'; return }
-    // si no hay track activo, intenta activar cámara rápida
     if (!currentTrack) {
       try {
         if (perms.value.camera !== 'granted') await requestCameraPermission()
         const s = await navigator.mediaDevices.getUserMedia({
           video: { facingMode: { ideal: 'environment' } }, audio: false
         })
-        // no lo conectamos al <video>; solo para tener un track válido
         currentTrack = s.getVideoTracks()[0]
       } catch (e) {
         scanError.value = explainGetUserMediaError(e)
@@ -1015,7 +1090,6 @@ async function toggleTorch () {
     scanError.value = 'No se pudo activar la linterna.'
   }
 }
-
 async function setZoom (factor) {
   try {
     if (!currentTrack) return
@@ -1037,54 +1111,70 @@ function suggestCategoryFromText (t) {
   if (/(proveed|factura)/i.test(s)) return 'proveedores'
   return 'Gastos varios con boleta'
 }
+
+/* ========= REEMPLAZO handleScan ========= */
 function handleScan (raw) {
   if (!raw) return
   lastScan.value = String(raw).trim()
   autofillInfo.value = { montoOk: false, fechaOk: false, catOk: false }
-  try {
-    const urlMatch = lastScan.value.match(/https?:\/\/[^\s]+/i)?.[0]
-    if (urlMatch) {
-      const u = new URL(urlMatch)
-      const t = u.searchParams.get('t')
-      const f = u.searchParams.get('f')
-      const fe = u.searchParams.get('fe')
-      if (t) {
-        const n = Number(t.replace(/\./g,'').replace(/,/g,'.'))
-        if (!Number.isNaN(n) && n > 0) { monto.value = n; moneda.value = 'CLP'; syncStep(); autofillInfo.value.montoOk = true }
-      }
-      if (f && !numeroDoc.value) { numeroDoc.value = f }
-      if (fe) { fecha.value = fe; autofillInfo.value.fechaOk = true }
+
+  // 1) Parse SII robusto (URL / kv / TED)
+  const parsed = parseSIIFromScan(lastScan.value)
+  if (parsed?.monto && parsed.monto > 0) {
+    monto.value = parsed.monto
+    moneda.value = 'CLP'
+    syncStep()
+    autofillInfo.value.montoOk = true
+  }
+  if (parsed?.fecha) {
+    fecha.value = parsed.fecha
+    autofillInfo.value.fechaOk = true
+  }
+  if (parsed?.folio && !numeroDoc.value) {
+    numeroDoc.value = parsed.folio
+  }
+  if (parsed?.tipoDoc && !tipoDoc.value) {
+    tipoDoc.value = parsed.tipoDoc
+  }
+
+  // 2) Fallbacks por si vino un formato extraño
+  if (!autofillInfo.value.montoOk) {
+    let montoTxt = null
+    const m1 = /<MntTotal>\s*([\d.,]+)\s*<\/MntTotal>/i.exec(lastScan.value)
+    if (m1?.[1]) montoTxt = m1[1]
+    if (!montoTxt) {
+      const m2 = /MntTotal\s*[:=]\s*([\d.,]+)/i.exec(lastScan.value)
+      if (m2?.[1]) montoTxt = m2[1]
     }
-  } catch { /* ignore */ }
-
-  let montoTxt = null
-  const m1 = /<MntTotal>\s*([\d.,]+)\s*<\/MntTotal>/i.exec(lastScan.value)
-  if (m1?.[1]) montoTxt = m1[1]
-  if (!montoTxt) {
-    const m2 = /MntTotal\s*[:=]\s*([\d.,]+)/i.exec(lastScan.value)
-    if (m2?.[1]) montoTxt = m2[1]
-  }
-  if (!montoTxt) {
-    const m3 = /(?:Total|Monto|Pagar)\s*[:=]?\s*\$?\s*([\d.]{3,}(?:,\d{2})?)/i.exec(lastScan.value)
-    if (m3?.[1]) montoTxt = m3[1]
-  }
-  if (!montoTxt) {
-    const nums = lastScan.value.match(/[\d.]{4,}(?:,\d{2})?/g) || []
-    if (nums.length) montoTxt = nums.sort((a,b)=> (Number(b.replace(/\./g,'').replace(',', '.')) - Number(a.replace(/\./g,'').replace(',', '.'))))[0]
-  }
-  if (montoTxt) {
-    const n = Number(montoTxt.replace(/\./g,'').replace(/,/g,'.'))
-    if (!Number.isNaN(n) && n > 0) { monto.value = n; moneda.value = 'CLP'; syncStep(); autofillInfo.value.montoOk = true }
+    if (!montoTxt) {
+      const m3 = /(?:Total|Monto|Pagar)\s*[:=]?\s*\$?\s*([\d.]{3,}(?:,\d{2})?)/i.exec(lastScan.value)
+      if (m3?.[1]) montoTxt = m3[1]
+    }
+    if (!montoTxt) {
+      const nums = lastScan.value.match(/[\d.]{4,}(?:,\d{2})?/g) || []
+      if (nums.length) {
+        montoTxt = nums.sort((a,b)=> (Number(b.replace(/\./g,'').replace(',', '.')) - Number(a.replace(/\./g,'').replace(',', '.'))))[0]
+      }
+    }
+    const n = cleanNumberLike(montoTxt)
+    if (n && n > 0) {
+      monto.value = n
+      moneda.value = 'CLP'
+      syncStep()
+      autofillInfo.value.montoOk = true
+    }
   }
 
-  let fStr = null
-  const f1 = /<FchEmis>\s*(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})\s*<\/FchEmis>/i.exec(lastScan.value)
-  const f2 = /(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})/.exec(lastScan.value)
-  const f3 = /(\d{1,2})[/-](\d{1,2})[/-](\d{4})/.exec(lastScan.value)
-  if (f1) { const [ , y, mo, d] = f1; fStr = `${y}-${String(mo).padStart(2,'0')}-${String(d).padStart(2,'0')}` }
-  else if (f2) { const [ , y, mo, d] = f2; fStr = `${y}-${String(mo).padStart(2,'0')}-${String(d).padStart(2,'0')}` }
-  else if (f3) { const [ , d, mo, y] = f3; fStr = `${y}-${String(mo).padStart(2,'0')}-${String(d).padStart(2,'0')}` }
-  if (fStr) { fecha.value = fStr; autofillInfo.value.fechaOk = true }
+  if (!autofillInfo.value.fechaOk) {
+    let fStr = null
+    const f1 = /<FchEmis>\s*(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})\s*<\/FchEmis>/i.exec(lastScan.value)
+    const f2 = /(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})/.exec(lastScan.value)
+    const f3 = /(\d{1,2})[/-](\d{1,2})[/-](\d{4})/.exec(lastScan.value)
+    if (f1) { const [ , y, mo, d] = f1; fStr = toISODate(y, mo, d) }
+    else if (f2) { const [ , y, mo, d] = f2; fStr = toISODate(y, mo, d) }
+    else if (f3) { const [ , d, mo, y] = f3; fStr = toISODate(y, mo, d) }
+    if (fStr) { fecha.value = fStr; autofillInfo.value.fechaOk = true }
+  }
 
   const catSugerida = suggestCategoryFromText(lastScan.value)
   if (!categoria.value && catSugerida) { categoria.value = catSugerida; autofillInfo.value.catOk = true }
@@ -1094,6 +1184,7 @@ function handleScan (raw) {
 
   stopScanner()
 }
+
 async function stopScanner () {
   try {
     if (rafId) cancelAnimationFrame(rafId)
@@ -1114,12 +1205,11 @@ let photoStream = null
 const photoReady = ref(false)
 function waitForVideoReadyGeneric (v) { return waitForVideoReady(v) }
 async function openPhotoCapture () {
-    photoError.value = ''; photoReady.value = false
+  photoError.value = ''; photoReady.value = false
   try {
     if (!isSecure()) throw new Error('Debes usar HTTPS (o localhost) para acceder a la cámara.')
     await stopScanner()
 
-    // Disparar prompt si aún no está
     try {
       if (perms.value.camera !== 'granted') {
         await requestCameraPermission()
@@ -1168,9 +1258,6 @@ async function capturePhoto () {
     const file = new File([blob], 'captura.jpg', { type: 'image/jpeg' })
     fotoPreview.value = await compressImageToDataURL(file, { maxW: 1280, maxH: 1280, quality: 0.8 })
     await closePhotoCapture()
-
-    // Opcional: lanzar OCR automáticamente
-    // await ocrFromCurrentPhoto()
   } catch (e) { console.error(e); photoError.value = e?.message || 'No se pudo capturar la foto.' }
 }
 onBeforeUnmount(() => { stopScanner(); closePhotoCapture() })

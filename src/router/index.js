@@ -28,6 +28,7 @@ const InformeDetalle = () => import('@/views/InformeDetalle.vue')
 // NUEVO: aprobador de informes
 const AprobadorInformes = () => import('@/views/AprobadorInformes.vue')
 const AprobadorInformeDetalle = () => import('@/views/AprobadorInformeDetalle.vue')
+const AdminInformes = () => import('@/views/AdminInformes.vue')
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
   routes: [
@@ -65,7 +66,12 @@ const router = createRouter({
     // *** Aprobador de Informes (NUEVO) ***
     { path: '/aprobador/informes-aprobador', name: 'aprobadorInformes', component: AprobadorInformes, props: true, meta: { requiresAuth: true, aprobadorOnly: true, title: 'Aprobador · Informes' } },
     { path: '/aprobador/informes-aprobador/:id', name: 'aprobadorInforme', component: AprobadorInformeDetalle, props: route => ({ informeId: route.params.id }) , meta: { requiresAuth: true, aprobadorOnly: true, title: 'Aprobador · Detalle de informe' } },
-
+    {
+      path: '/admin/informes',
+      name: 'AdminInformes',
+      component: AdminInformes,
+    meta: { requiresAuth: true, adminOnly: true, layout: 'admin', title: 'Informes' }
+    },
     // Catch-all
     { path: '/:pathMatch(.*)*', redirect: '/' },
   ],

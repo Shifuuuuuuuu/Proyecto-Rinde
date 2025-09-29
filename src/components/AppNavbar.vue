@@ -153,7 +153,6 @@ const brandTo = computed(() =>
       : { name: 'home' }
 )
 
-// Menús (usuario/rendidor)
 const itemsRendidor = [
   { label: 'Inicio',          to: { name: 'home' },              icon: 'bi bi-house-door' },
   { label: 'Rendiciones',     to: { name: 'rendiciones' },       icon: 'bi bi-journal-text' },
@@ -163,18 +162,17 @@ const itemsRendidor = [
 
 ]
 
-// Menú específico del aprobador
 const itemsAprobador = [
   ...itemsRendidor,
   { label: 'Informes', to: { name: 'aprobadorInformes' },     icon: 'bi bi-file-earmark-check' },
 ]
 
-// Menú del admin (panel admin + accesos a aprobaciones e informes del aprobador)
 const itemsAdminPanel = [
   { label: 'Admin',                to: { name: 'admin' },                 icon: 'bi bi-speedometer2' },
   { label: 'Usuarios',             to: { name: 'AdminUsuarios' },         icon: 'bi bi-people' },
   { label: 'Soporte',      to: { name: 'admin.soporte' },         icon: 'bi bi-life-preserver' },
   { label: 'Informes',             to: { name: 'aprobadorInformes' },     icon: 'bi bi-file-earmark-check' },
+  { label: 'Informes (Admin)',     to: { name: 'AdminInformes' },         icon: 'bi bi-file-text' },
 ]
 
 // Helpers para active

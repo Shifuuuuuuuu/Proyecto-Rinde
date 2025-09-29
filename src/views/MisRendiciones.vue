@@ -298,12 +298,6 @@
             <i class="bi bi-file-earmark-plus"></i> Crear informe
           </button>
 
-          <button class="btn btn-outline-dark" type="button"
-            :disabled="!(seleccionCount === 1 && seleccionTieneInforme)" @click="verInformeSeleccionado"
-            title="Ver informe del elemento seleccionado">
-            <i class="bi bi-file-earmark-text"></i> Ver informe
-          </button>
-
           <button class="btn btn-outline-primary" type="button" :disabled="seleccionCount !== 1"
             @click="copiarSeleccionado">
             <i class="bi bi-files"></i> Copiar
@@ -555,13 +549,6 @@ const toggleSeleccionPagina = () => {
   seleccionadosMap.value = m
 }
 
-// Saber si la (única) seleccionada tiene informe
-const seleccionTieneInforme = computed(() => {
-  if (seleccionCount.value !== 1) return false
-  const id = seleccionados.value[0]
-  const x = items.value.find(i => i.id === id)
-  return !!x?.informeId
-})
 // NUEVO: título del informe
 const tituloInforme = ref('')
 
@@ -629,13 +616,6 @@ const editarSeleccionado = () => {
   if (seleccionCount.value !== 1) return
   const id = seleccionados.value[0]
   router.push({ name: 'detalle', params: { id }, query: { edit: 1 } })
-}
-
-const verInformeSeleccionado = () => {
-  if (seleccionCount.value !== 1) return
-  const id = seleccionados.value[0]
-  const x = items.value.find(i => i.id === id)
-  if (x?.informeId) router.push({ name: 'informeDetalle', params: { id: x.informeId } })
 }
 
 const eliminarSeleccionados = async (fromConfirm = false) => {
