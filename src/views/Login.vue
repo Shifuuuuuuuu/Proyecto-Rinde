@@ -82,16 +82,9 @@
               <span v-else class="spinner-border spinner-border-sm"></span>
             </button>
           </form>
-
-          <div class="mt-3">
-            ¿No tienes cuenta?
-            <RouterLink to="/registro">Crear cuenta</RouterLink>
-          </div>
-
           <!-- Tips -->
           <div class="mt-4 small text-muted">
             <div class="mb-1"><i class="bi bi-shield-lock me-1"></i> Tu sesión es segura. No compartas tus credenciales.</div>
-            <div><i class="bi bi-info-circle me-1"></i> Si tienes problemas para ingresar, verifica tu correo y contraseña o contacta al administrador.</div>
           </div>
 
         </div>

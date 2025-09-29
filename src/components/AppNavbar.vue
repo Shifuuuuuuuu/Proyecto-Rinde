@@ -119,12 +119,6 @@
             </ul>
           </li>
         </ul>
-
-        <!-- Invitados -->
-        <ul class="navbar-nav ms-auto" v-else>
-          <li class="nav-item"><RouterLink class="nav-link" :to="{ name: 'login' }">Iniciar sesión</RouterLink></li>
-          <li class="nav-item"><RouterLink class="nav-link" :to="{ name: 'registro' }">Crear cuenta</RouterLink></li>
-        </ul>
       </div>
     </div>
   </nav>
