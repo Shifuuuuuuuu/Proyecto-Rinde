@@ -3,21 +3,25 @@
   <main class="container py-4">
     <router-view />
   </main>
+
+  <!-- Tu toast de soporte (filtra 'support') -->
   <ToastCenterSupport />
-  <ToastCenterRendiciones />
+
+  <!-- Toasts de informes + rendiciones (derecha) -->
+  <AppToastsRight />
 </template>
 
 <script setup>
 import AppNavbar from '@/components/AppNavbar.vue'
-
 import ToastCenterSupport from '@/components/ToastCenterSupport.vue'
-import ToastCenterRendiciones from '@/components/ToastCenterRendiciones.vue'
-import { useSupportNotifications } from '@/composables/useSupportNotifications'
-import { useAdminSupportAlerts } from '@/composables/useAdminSupportAlerts'
-import { useRendicionesNotificationsForUser, useRendicionesNotificationsForAprobador } from '@/composables/useRendicionesNotifications'
+import AppToastsRight from '@/components/AppToastsRight.vue'
 
-useRendicionesNotificationsForUser()
-useRendicionesNotificationsForAprobador()
-useSupportNotifications()
+import { useAdminSupportAlerts } from '@/composables/useAdminSupportAlerts'
+import { useInformeAlerts } from '@/composables/useInformeAlerts'
+import { useRendicionAlerts } from '@/composables/useRendicionAlerts'
+
+// listeners globales
 useAdminSupportAlerts()
+useInformeAlerts()     // deja true mientras pruebas
+useRendicionAlerts()   // deja true mientras pruebas
 </script>

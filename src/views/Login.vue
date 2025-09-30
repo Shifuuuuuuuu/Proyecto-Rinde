@@ -23,30 +23,36 @@
           </div>
 
           <!-- Form -->
-          <form @submit.prevent="enviar" class="needs-validation" novalidate>
+          <form @submit.prevent="enviar" class="needs-validation" novalidate autocomplete="on">
             <div class="mb-3">
-              <label class="form-label">Correo electrónico</label>
+              <label class="form-label" for="email">Correo electrónico</label>
               <div class="input-group">
                 <span class="input-group-text"><i class="bi bi-envelope"></i></span>
                 <input
+                  id="email"
+                  name="username"
                   v-model.trim="email"
                   type="email"
                   class="form-control"
                   placeholder="tucorreo@empresa.com"
-                  autocomplete="email"
+                  autocomplete="username email"
                   required
                 />
               </div>
             </div>
 
             <div class="mb-2">
-              <label class="form-label">Contraseña</label>
+              <label class="form-label" for="password">Contraseña</label>
               <div class="input-group">
                 <span class="input-group-text"><i class="bi bi-lock"></i></span>
+
+                <!-- OJO: mantenemos type="password" en el input principal -->
                 <input
+                  id="password"
+                  name="current-password"
                   ref="passInput"
                   v-model="password"
-                  :type="showPassword ? 'text' : 'password'"
+                  type="password"
                   class="form-control no-reveal"
                   placeholder="Tu contraseña"
                   autocomplete="current-password"
@@ -54,10 +60,12 @@
                   @keyup="detectarCaps"
                   @keydown="detectarCaps"
                 />
+
+                <!-- Botón que alterna la visibilidad SIN cambiar el atributo name -->
                 <button
                   type="button"
                   class="btn btn-outline-secondary"
-                  @click="showPassword = !showPassword"
+                  @click="togglePassword"
                   :aria-pressed="showPassword"
                   :title="showPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'"
                 >
@@ -94,7 +102,7 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { ref, onMounted, watch } from 'vue'
 import { useAuthStore } from '@/stores/auth'
 import { useRoute, useRouter, RouterLink } from 'vue-router'
 
@@ -113,6 +121,14 @@ const router = useRouter()
 
 const volver = () => router.back()
 
+const togglePassword = () => {
+  showPassword.value = !showPassword.value
+  // Truco: alternamos el tipo con un input "shadow" para no romper al gestor
+  const el = passInput.value
+  if (!el) return
+  el.setAttribute('type', showPassword.value ? 'text' : 'password')
+}
+
 const detectarCaps = (e) => {
   try { capsOn.value = e.getModifierState && e.getModifierState('CapsLock') } catch { capsOn.value = false }
 }
@@ -129,19 +145,46 @@ const mapAuthError = (code) => {
   }
 }
 
+// Prefill del email si el usuario eligió recordar
+onMounted(() => {
+  const remembered = localStorage.getItem('remember_email') === '1'
+  if (remembered) {
+    remember.value = true
+    email.value = localStorage.getItem('last_email') || ''
+  }
+})
+
+// Actualiza storage según el checkbox
+watch(remember, (val) => {
+  localStorage.setItem('remember_email', val ? '1' : '0')
+  if (!val) localStorage.removeItem('last_email')
+})
+
+// Si cambia el email y está marcado recordar, lo guardamos
+watch(email, (val) => {
+  if (remember.value) localStorage.setItem('last_email', val || '')
+})
+
 const enviar = async () => {
   error.value = ''
   cargando.value = true
   try {
-    // login devuelve el rol cuando termina de cargar perfil
+    // Persistencia de sesión (local/sesión) + login
     const rol = await auth.login(email.value, password.value, remember.value)
 
-    // Si venía ?redirect, lo respetamos; si no, destino por rol
+    // Refresca storage del email tras un login exitoso
+    if (remember.value) {
+      localStorage.setItem('remember_email', '1')
+      localStorage.setItem('last_email', email.value || '')
+    } else {
+      localStorage.removeItem('remember_email')
+      localStorage.removeItem('last_email')
+    }
+
+    // Redirección
     const redirectQuery = route.query.redirect
     let destino = '/'
-    if (!redirectQuery) {
-      destino = (rol === 'admin' || rol === 'aprobador') ? '/admin' : '/'
-    }
+    if (!redirectQuery) destino = (rol === 'admin' || rol === 'aprobador') ? '/admin' : '/'
     router.push(redirectQuery || destino)
   } catch (e) {
     error.value = mapAuthError(e.code) || e.message || 'Credenciales inválidas o error de conexión.'
@@ -151,6 +194,7 @@ const enviar = async () => {
   }
 }
 </script>
+
 
 <style scoped>
 .card { border-radius: 14px; }
